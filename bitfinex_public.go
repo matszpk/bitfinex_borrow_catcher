@@ -35,6 +35,7 @@ var (
     bitfinexPubApiHost = []byte("api-pub.bitfinex.com")
     bitfinexApiTrades = []byte("/v2/trades/f")
     bitfinexApiOrderBook = []byte("/v2/book/f")
+    bitfinexApiCandles = []byte("/v2/candles/trade:")
 )
 
 type Side uint8
@@ -198,7 +199,67 @@ func (drv *BitfinexPublic) GetOrderBook(currency string, ob *OrderBook) {
     bitfinexGetOrderBookFromJson(v, ob)
 }
 
+func bitfinexCandlePeriodString(period uint32) string {
+    periodStr := ""
+    switch period {
+        case 60: periodStr = "1m"
+        case 5*60: periodStr = "5m"
+        case 15*60: periodStr = "15m"
+        case 30*60: periodStr = "30m"
+        case 3600: periodStr = "1h"
+        case 3*3600: periodStr = "3h"
+        case 6*3600: periodStr = "6h"
+        case 12*3600: periodStr = "12h"
+        case 24*3600: periodStr = "1D"
+        case 7*24*3600: periodStr = "7D"
+        case 14*24*3600: periodStr = "14D"
+        case 30*24*3600: periodStr = "1M"
+        default:
+            panic("Unsupported candle period")
+    }
+    return periodStr
+}
+
+func bitfinexGetCandleFromJson(v *fastjson.Value, candle *Candle) {
+    arr := FastjsonGetArray(v)
+    if len(arr) < 6 {
+        panic("Wrong json body")
+    }
+    candle.TimeStamp = FastjsonGetUnixTimeMilli(arr[0])
+    candle.Open = FastjsonGetUDec128(arr[1], 8)
+    candle.Close = FastjsonGetUDec128(arr[2], 8)
+    candle.High = FastjsonGetUDec128(arr[3], 8)
+    candle.Low = FastjsonGetUDec128(arr[4], 8)
+    candle.Volume = FastjsonGetUDec128(arr[5], 8)
+}
+
 func (drv *BitfinexPublic) GetCandles(currency string, period uint32,
-                            start time.Time, limit uint) []Candle {
-    return nil
+                            since time.Time, limit uint) []Candle {
+    apiUrl := make([]byte, 0, 60)
+    apiUrl = append(apiUrl, bitfinexApiCandles...)
+    apiUrl = append(apiUrl, bitfinexCandlePeriodString(period)...)
+    apiUrl = append(apiUrl, ":f"...)
+    apiUrl = append(apiUrl, currency...)
+    apiUrl = append(apiUrl, ":a30:p2:p30/hist?sort=1&start="...)
+    if since.IsZero() {
+        since = time.Now().Add(-time.Duration(limit) *
+                        time.Duration(period) * time.Second)
+    }
+    unixTime := since.Unix()*1000 + int64(since.Nanosecond()/1000000)
+    apiUrl = strconv.AppendInt(apiUrl, unixTime, 10)
+    apiUrl = append(apiUrl, "&limit="...)
+    apiUrl = strconv.AppendUint(apiUrl, uint64(limit), 10)
+    
+    var rh RequestHandle
+    defer rh.Release()
+    v, sc := rh.HandleHttpGetJson(drv.httpClient, bitfinexPubApiHost, apiUrl, nil)
+    if sc >= 400 { bitfinexPanic("Can't get candles", v, sc) }
+    
+    arr := FastjsonGetArray(v)
+    candles := make([]Candle, len(arr))
+    
+    for i, cv := range arr {
+        bitfinexGetCandleFromJson(cv, &candles[i])
+    }
+    return candles
 }

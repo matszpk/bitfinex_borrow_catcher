@@ -24,20 +24,13 @@ package main
 
 import (
     "fmt"
-    //"time"
+    "time"
     //"github.com/matszpk/godec128"
 )
 
 func main() {
     bp := NewBitfinexPublic()
-    var ob OrderBook
-    bp.GetOrderBook("USD", &ob)
-    fmt.Println("Bids:")
-    for _, obe := range ob.Bid {
-        fmt.Println(obe)
-    }
-    fmt.Println("Asks:")
-    for _, obe := range ob.Ask {
-        fmt.Println(obe)
+    for _, c := range bp.GetCandles("USD", 30*60, time.Now().Add(-12*time.Hour), 1000) {
+        fmt.Println(c)
     }
 }
