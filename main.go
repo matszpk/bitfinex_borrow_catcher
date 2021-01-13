@@ -24,10 +24,20 @@ package main
 
 import (
     "fmt"
-    "github.com/matszpk/godec128"
+    //"time"
+    //"github.com/matszpk/godec128"
 )
 
 func main() {
-    d := godec128.UDec128{ 222, 33 }
-    fmt.Println(d.Format(8, false))
+    bp := NewBitfinexPublic()
+    var ob OrderBook
+    bp.GetOrderBook("USD", &ob)
+    fmt.Println("Bids:")
+    for _, obe := range ob.Bid {
+        fmt.Println(obe)
+    }
+    fmt.Println("Asks:")
+    for _, obe := range ob.Ask {
+        fmt.Println(obe)
+    }
 }

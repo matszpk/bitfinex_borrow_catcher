@@ -79,6 +79,12 @@ type BitfinexPublic struct {
     httpClient fasthttp.HostClient
 }
 
+func NewBitfinexPublic() *BitfinexPublic {
+    return &BitfinexPublic{ httpClient: fasthttp.HostClient{
+        Addr: "api.bitfinex.com,api-pub.bitfinex.com",
+        IsTLS: true, ReadTimeout: time.Second*60 } }
+}
+
 func bitfinexPanic(msg string, v *fastjson.Value, sc int) {
     if v!=nil {
         switch v.Type() {
@@ -171,7 +177,7 @@ func bitfinexGetOrderBookFromJson(v *fastjson.Value, ob *OrderBook) {
     var obe OrderBookEntry
     // orderbook entries is in correct order
     for _, obev := range arr {
-        if !bitfinexGetOrderBookEntryFromJson(obev, &obe) {
+        if bitfinexGetOrderBookEntryFromJson(obev, &obe) {
             ob.Bid = append(ob.Bid, obe)
         } else {
             ob.Ask = append(ob.Ask, obe)
