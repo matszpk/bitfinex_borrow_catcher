@@ -1,0 +1,4 @@
+github.com/matszpk/godec128 v0.0.0-20201207211843-04b4b6c0ce92 h1:8a/xoRgYYXNEavZ6BmzlX+X1EtbgjmG1ELsTm91S3wU=
+github.com/matszpk/godec128 v0.0.0-20201207211843-04b4b6c0ce92/go.mod h1:n4Vvdtr8qYdilQRwCKm0Q83M0Od00SQFowMdOt7A+u8=
+github.com/matszpk/goint128 v0.0.0-20201103150833-99720996843b h1:Jx8nFiTy3VsV7trXBypSDkn4hQGbS1AnDVeLcbiVd8s=
+github.com/matszpk/goint128 v0.0.0-20201103150833-99720996843b/go.mod h1:8g5u5opp+zz64xOFJ/8mOLIKwucdPnEPfgfAyAkByfI=
