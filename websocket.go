@@ -34,6 +34,14 @@ import (
     "github.com/gorilla/websocket"
 )
 
+type ErrorHandler func(error)
+
+type errorHandlerPack struct {
+    h ErrorHandler
+}
+
+var dummyErrorHandlerPack errorHandlerPack = errorHandlerPack{}
+
 type wsChannelType uint8
 
 type wsFunc func()
@@ -138,8 +146,8 @@ func (drv *websocketDriver) stop() {
     drv.tradeHandlers = sync.Map{}
     drv.orderBookHandlers = sync.Map{}
     drv.diffOrderBookHandlers = sync.Map{}
-    drv.candleHandlers = sync.Map{}
-    drv.errorHandler.Store(&dummyErrorHandlerPack)*/
+    drv.candleHandlers = sync.Map{}*/
+    drv.errorHandler.Store(&dummyErrorHandlerPack)
     drv.reconnHandler = nil
     atomic.StoreUint32(&drv.channelsOpened, 0)
     if drv.conn==nil { return }
@@ -269,16 +277,21 @@ func (drv *websocketDriver) handleMessages() {
                     good = drv.reconnect()
                 } else if (err!=nil) {
                     // other error
-                    /*h := drv.errorHandler.Load().(*errorHandlerPack)
+                    h := drv.errorHandler.Load().(*errorHandlerPack)
                     if h.h!=nil && err!=nil {
                         go h.h(err)
-                    }*/
+                    }
                 }
             }
             case <-drv.stopCh:
                 good = false    // just stop
         }
     }
+}
+
+func (drv *websocketDriver) setErrorHandler(h ErrorHandler) {
+    if h!=nil { drv.errorHandler.Store(&errorHandlerPack{ h })
+    } else { drv.errorHandler.Store(&dummyErrorHandlerPack) }
 }
 
 // resubscribe channels after reconnection
