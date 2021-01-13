@@ -159,7 +159,7 @@ func bitfinexGetOrderBookEntryFromJson(v *fastjson.Value, obe *OrderBookEntry) b
     if len(arr) < 3 {
         panic("Wrong json body")
     }
-    obe.Id = FastjsonGetUInt64(arr[1])
+    obe.Id = FastjsonGetUInt64(arr[0])
     obe.Period = FastjsonGetUInt32(arr[1])
     obe.Rate = FastjsonGetUDec128(arr[2], 8)
     var neg bool
