@@ -70,6 +70,7 @@ type websocketDriver struct {
     callMutex sync.Mutex
     
     dialParams wsDialParamsFunc
+    initMessage wsFunc
     handleMessage wsHandleMessageFunc
 }
 
@@ -119,6 +120,7 @@ func (drv *websocketDriver) start() {
     }
     if !good { panic("Can't WSDial") }
     
+    if drv.initMessage!=nil { drv.initMessage() }
     drv.funcRetCh = make(chan string, 2)
     drv.funcErrCh = make(chan error, 2)
     
@@ -167,6 +169,18 @@ func (drv *websocketDriver) stop() {
     drv.awaitingFuncRet = 0
 }
 
+// routine wrapper for catching panics
+func (drv *websocketDriver) initMessageSafe() bool {
+    good := true
+    defer func() {
+        if x := recover(); x!=nil {
+            good = false
+        }
+    }()
+    if drv.initMessage!=nil { drv.initMessage() }
+    return good
+}
+
 // replacement of time.Sleep with immediately leaving
 func (drv *websocketDriver) reconnectWait(d time.Duration) bool {
     timer := time.NewTimer(d)
@@ -195,7 +209,12 @@ func (drv *websocketDriver) tryReconnect() bool {
                 return false
             }
         }
-        if good { return true }
+        if good {
+            if !drv.initMessageSafe() {
+                continue
+            }
+            return true
+        }
     }
     return false
 }
