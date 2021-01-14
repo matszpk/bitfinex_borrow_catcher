@@ -3,6 +3,7 @@ module github.com/matszpk/bitfinex_funding_catcher
 go 1.15
 
 require (
+	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/gorilla/websocket v1.4.2
 	github.com/kataras/golog v0.1.6
 	github.com/matszpk/godec128 v0.0.0-20201207211843-04b4b6c0ce92

@@ -105,6 +105,55 @@ func (rh *RequestHandle) HandleHttpGetJson(httpClient fasthttp.HostClient,
     return v, status
 }
 
+// headers - array of string-bytes, even elements are keys, odd are value
+func (rh *RequestHandle) HandleHttpPostJson(httpClient fasthttp.HostClient,
+                host, uri []byte, body *fastjson.Value,
+                headers [][]byte) (*fastjson.Value, int) {
+    req := fasthttp.AcquireRequest()
+    defer fasthttp.ReleaseRequest(req)
+    
+    req.SetRequestURIBytes(uri)
+    if httpClient.IsTLS {   // fix for new fasthttp versions
+        req.URI().SetScheme("https")
+    }
+    req.Header.SetMethod(fasthttp.MethodPost)
+    req.SetHostBytes(host)
+    req.Header.SetUserAgentBytes(UserAgentBytes)
+    req.Header.Add("Content-Type", "application/json")
+    req.Header.Add("Accept", "application/json")
+    req.Header.Add("Accept-Encoding", "utf-8")
+    
+    // set extra headers
+    hlen := len(headers)
+    for i:=0; i < hlen; i+=2 {
+        req.Header.AddBytesKV(headers[i], headers[i+1])
+    }
+    
+    bodyStr, err := body.StringBytes()
+    if err!=nil {
+        ErrorPanic("Error while getting body to HTTP request", err)
+    }
+    req.SetBodyRaw(bodyStr)
+    
+    rh.Response = fasthttp.AcquireResponse()
+    if err := httpClient.Do(req, rh.Response); err!=nil {
+        ErrorPanic("Error while doing HTTP request", err)
+    }
+    status := rh.Response.Header.StatusCode()
+    if !CheckJsonContentType(rh.Response.Header.ContentType()) {
+        // wrong content type (must be json encoded in utf-8
+        panic("HTTP response have wrong content-type")
+    }
+    
+    // parse json
+    rh.JsonParser = JsonParserPool.Get()
+    v, err := rh.JsonParser.ParseBytes(rh.Response.Body())
+    if err!=nil {
+        ErrorPanic("Error while parsing response", err)
+    }
+    return v, status
+}
+
 // should be called after using request handle
 func (rh *RequestHandle) Release() {
     if rh.JsonParser!=nil {

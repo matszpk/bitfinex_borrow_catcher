@@ -1,5 +1,5 @@
 /*
- * main.go - main program
+ * bitfinex_private.go - Bitfinex Private client
  *
  * bitfinex_funding_catcher - Automatic funding catcher for open positions in
  *                            the Bitfinex exchange
@@ -23,26 +23,10 @@
 package main
 
 import (
-    "fmt"
-    //"time"
-    "github.com/chzyer/readline"
-    //"github.com/matszpk/godec128"
+    "github.com/valyala/fasthttp"
 )
 
-func Authenticate() ([]byte, []byte) {
-    apiKey, err := readline.Password("Enter APIKey:")
-    if err!=nil {
-        panic(fmt.Sprint("Can't read APIKey: ", err))
-    }
-    secretKey, err := readline.Password("Enter SecretKey:")
-    if err!=nil {
-        panic(fmt.Sprint("Can't read SecretKey: ", err))
-    }
-    return apiKey, secretKey
-}
-
-func main() {
-    apiKey, secretKey := Authenticate()
-    fmt.Println("APIKey:", string(apiKey))
-    fmt.Println("SecretKey:", string(secretKey))
+type BitfinexPrivate struct {
+    httpClient fasthttp.HostClient
+    apiKey, apiSecret []byte
 }
