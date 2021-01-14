@@ -25,7 +25,6 @@ package main
 import (
     "fmt"
     "sync"
-    //"time"
 )
 
 type seqNoElem interface {
