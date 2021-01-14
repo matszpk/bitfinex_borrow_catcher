@@ -24,25 +24,13 @@ package main
 
 import (
     "fmt"
-    //"sync"
+    "sync"
     //"time"
 )
 
 type seqNoElem interface {
     seqNo() uint64
     process()
-}
-
-type seqHandler interface {
-    clear()
-    push(nelem seqNoElem) bool
-    // check whether initial seqNo is valid for first seqNo
-    checkFirstSeqNo(initial, first uint64) bool
-    flush() bool
-    flushTo(seqNo uint64)
-    setFlushHandler(fh func(uint64))
-    start()
-    stop()
 }
 
 /* seqNo handler */
@@ -180,20 +168,11 @@ func (nh *seqNoHandler) flush() bool {
     return allProcessed
 }
 
-func (nh *seqNoHandler) flushTo(seqNo uint64) {
-}
-
 func (nh *seqNoHandler) checkFirstSeqNo(initial, first uint64) bool {
     return initial+1 >= first
 }
 
 func (nh *seqNoHandler) setFlushHandler(fh func(uint64)) {
-}
-
-func (nh *seqNoHandler) start() {
-}
-
-func (nh *seqNoHandler) stop() {
 }
 
 // apply orderbook diff
@@ -288,5 +267,184 @@ func (stmp *OrderBook) applyDiff(sdest *OrderBook, diff *OrderBookEntryDiff) {
                 sdest.Ask = append(sdest.Ask, diff.Obe)
             }
         }
+    }
+}
+
+/* small order book update mechanism */
+
+type rtOBPending struct {
+    diffSeqNo uint64
+    diff *OrderBookEntryDiff
+}
+
+type rtOBElem struct {
+    diffSeqNo uint64
+    diff *OrderBookEntryDiff
+    rtob *rtOrderBookHandle
+}
+
+func (elem *rtOBElem) seqNo() uint64 {
+    return elem.diffSeqNo
+}
+
+func (elem *rtOBElem) process() {
+    elem.rtob.pendings = append(elem.rtob.pendings,
+                        rtOBPending{ elem.diffSeqNo, elem.diff })
+}
+
+type rtOrderBookHandle struct {
+    name string
+    maxDepth int
+    mutex sync.Mutex
+    initialSeqNo uint64
+    initial OrderBook
+    haveInitial bool
+    snHandler seqNoHandler
+    h OrderBookHandler
+    pendings []rtOBPending
+    toHandlePool sync.Pool
+}
+
+func newRtOrderBookHandle(rtName string, bookMaxDepth int, seqTime bool,
+                         fh OrderBookHandler) *rtOrderBookHandle {
+    rtob := &rtOrderBookHandle{ name: rtName, maxDepth: bookMaxDepth,
+        h: fh, haveInitial: false, pendings: make([]rtOBPending, 0, seqNoElemsNum) }
+    rtob.toHandlePool = sync.Pool{ New: rtob.newOrderBooks }
+    rtob.initial.Bid = make([]OrderBookEntry, 0, bookMaxDepth)
+    rtob.initial.Ask = make([]OrderBookEntry, 0, bookMaxDepth)
+    return rtob
+}
+
+func (rtob *rtOrderBookHandle) clearPendings() {
+    plen := len(rtob.pendings)
+    for i:=0; i < plen; i++ {
+        rtob.pendings[i] = rtOBPending{}
+    }
+    rtob.pendings = rtob.pendings[:0]
+}
+
+func (rtob *rtOrderBookHandle) pushInitialInt(seqNo uint64,
+                        ob *OrderBook) (int, []OrderBook, bool) {
+    rtob.mutex.Lock()
+    defer rtob.mutex.Unlock()
+    rtob.initialSeqNo = seqNo
+    rtob.initial.Bid = rtob.initial.Bid[:0]
+    rtob.initial.Ask = rtob.initial.Ask[:0]
+    rtob.initial.Bid = append(rtob.initial.Bid, ob.Bid...)
+    rtob.initial.Ask = append(rtob.initial.Ask, ob.Ask...)
+    rtob.haveInitial = true
+    return rtob.tryProcessInt()
+}
+
+// push initial small order book and try process rest
+// return true if current orderbooks to handle updated
+func (rtob *rtOrderBookHandle) pushInitial(seqNo uint64, ob *OrderBook) {
+    toHandleNum, toHandle, haveOut := rtob.pushInitialInt(seqNo, ob)
+    rtob.h(ob)
+    rtob.tryProcessEnd(toHandleNum, toHandle, haveOut)
+}
+
+// push difference of orderbook
+// return false if is not ok and initial orderbook required
+func (rtob *rtOrderBookHandle) pushDiffInt(seqNo uint64,
+                        diff *OrderBookEntryDiff) (int, []OrderBook, bool, bool) {
+    rtob.mutex.Lock()
+    defer rtob.mutex.Unlock()
+    if !rtob.snHandler.push(&rtOBElem{ seqNo, diff, rtob }) {
+        Logger.Warn("Some seqNo has been missed ", rtob.name)
+        rtob.snHandler.clear()
+        rtob.initial.Bid = rtob.initial.Bid[:0]
+        rtob.initial.Ask = rtob.initial.Ask[:0]
+        rtob.haveInitial = false
+        n, s, ok := rtob.tryProcessInt()
+        return n, s, ok, rtob.haveInitial
+    }
+    n, s, ok := rtob.tryProcessInt()
+    return n, s, ok, rtob.haveInitial
+}
+
+func (rtob *rtOrderBookHandle) clear() {
+    rtob.mutex.Lock()
+    defer rtob.mutex.Unlock()
+    rtob.snHandler.clear()
+    rtob.initial.Bid = rtob.initial.Bid[:0]
+    rtob.initial.Ask = rtob.initial.Ask[:0]
+    rtob.haveInitial = false
+    rtob.clearPendings()
+}
+
+func (rtob *rtOrderBookHandle) pushDiff(seqNo uint64, diff *OrderBookEntryDiff) bool {
+    toHandleNum, toHandle, haveOut, needInitial := rtob.pushDiffInt(seqNo, diff)
+    rtob.tryProcessEnd(toHandleNum, toHandle, haveOut)
+    return needInitial
+}
+
+func (rtob *rtOrderBookHandle) newOrderBooks() interface{}  {
+    out := make([]OrderBook, seqNoElemsNum)
+    for i:=0; i < seqNoElemsNum; i++ {
+        out[i].Bid = make([]OrderBookEntry, 0, rtob.maxDepth)
+        out[i].Ask = make([]OrderBookEntry, 0, rtob.maxDepth)
+    }
+    return out
+}
+
+func (rtob *rtOrderBookHandle) tryProcessInt() (int, []OrderBook, bool) {
+    pendingsLen := len(rtob.pendings)
+    if pendingsLen==0 || !rtob.haveInitial { // if no pendings or no initial
+        return 0, nil, false
+    }
+    if !rtob.snHandler.checkFirstSeqNo(rtob.initialSeqNo, rtob.pendings[0].diffSeqNo) {
+        // no initial is too old
+        rtob.initial.Bid = rtob.initial.Bid[:0]
+        rtob.initial.Ask = rtob.initial.Ask[:0]
+        rtob.haveInitial = false
+        return 0, nil, false
+    }
+    i := 0
+    for ; i < pendingsLen; i++ {
+        if rtob.initialSeqNo < rtob.pendings[i].diffSeqNo {
+            break
+        }
+    }
+    if i==pendingsLen { // if initial is too new
+        rtob.clearPendings() // make empty
+        return 0, nil, false
+    }
+    // real process
+    toHandle := rtob.toHandlePool.Get().([]OrderBook)
+    defer func() {
+        if x:=recover(); x!=nil {
+            rtob.toHandlePool.Put(toHandle)
+            panic(x) // panic again
+        }
+    }()
+    // process pendings
+    toHandleNum := 0
+    rtob.initial.applyDiff(&toHandle[0], rtob.pendings[i].diff)
+    j:=i+1
+    for ; j < pendingsLen; j++ {
+        toHandle[j-i-1].applyDiff(&toHandle[j-i], rtob.pendings[j].diff)
+    }
+    toHandleNum = j-i
+    rtob.initial.Bid = rtob.initial.Bid[:0]
+    rtob.initial.Ask = rtob.initial.Ask[:0]
+    rtob.initial.Bid = append(rtob.initial.Bid, toHandle[toHandleNum-1].Bid...)
+    rtob.initial.Ask = append(rtob.initial.Ask, toHandle[toHandleNum-1].Ask...)
+    rtob.initialSeqNo = rtob.pendings[j-1].diffSeqNo
+    // clearing pendings
+    rtob.clearPendings()
+    return toHandleNum, toHandle, true
+}
+
+func (rtob *rtOrderBookHandle) tryProcessEnd(toHandleNum int,
+                                toHandle []OrderBook, haveOut bool) {
+    if !haveOut { return }
+    defer rtob.toHandlePool.Put(toHandle)
+    if toHandleNum>1 { // call concurrently
+        for i:=0; i < toHandleNum; i++ {
+            go rtob.h(&toHandle[i])
+        }
+    } else if toHandleNum>0 {
+        rtob.h(&toHandle[0])
     }
 }

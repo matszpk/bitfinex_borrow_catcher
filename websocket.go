@@ -34,6 +34,8 @@ import (
     "github.com/gorilla/websocket"
 )
 
+type OrderBookHandler func(*OrderBook)
+
 type ErrorHandler func(error)
 
 type errorHandlerPack struct {
