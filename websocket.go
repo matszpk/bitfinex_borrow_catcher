@@ -56,7 +56,7 @@ const (
 type wsFunc func()
 type wsDialParamsFunc func() (string, http.Header)
 type wsHandleMessageFunc func(msg []byte)
-type wsResubscribeChannelFunc func(wsChannelType, interface{})
+type wsResubscribeChannelFunc func(wsChannelType, string)
 
 type websocketDriver struct {
     netDial func(network, addr string) (net.Conn, error)
@@ -264,6 +264,20 @@ func (drv *websocketDriver) sendErr(errCh chan<- error, err error) {
     }
 }
 
+func (drv *websocketDriver) sendFuncRet(v string) {
+    if atomic.LoadUint32(&drv.channelsOpened)!=0 {
+        drv.funcRetCh <- v
+    }
+}
+
+func (drv *websocketDriver) sendCommand(cmdBytes []byte) {
+    drv.connMutex.Lock()
+    conn := drv.conn
+    defer drv.connMutex.Unlock()
+    if conn==nil { panic("Can't send command") }
+    conn.WriteMessage(websocket.TextMessage, cmdBytes)
+}
+
 func (drv *websocketDriver) handleMessages() {
     msgCh := make(chan wsConnMsg, 2)
     defer close(msgCh)
@@ -351,7 +365,7 @@ func (drv *websocketDriver) getDiffOrderBookHandle(
     return nil
 }
 
-func (drv *websocketDriver) setErrorHandler(h ErrorHandler) {
+func (drv *websocketDriver) SetErrorHandler(h ErrorHandler) {
     if h!=nil { drv.errorHandler.Store(&errorHandlerPack{ h })
     } else { drv.errorHandler.Store(&dummyErrorHandlerPack) }
 }

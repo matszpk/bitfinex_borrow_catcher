@@ -119,6 +119,13 @@ func (rh *RequestHandle) Release() {
 
 /* fastjson utilities */
 
+func FastjsonGetObjectRequired(vx *fastjson.Value) *fastjson.Object {
+    if o, err := vx.Object(); err==nil {
+        return o
+    }
+    panic("Wrong json body: no object field")
+}
+
 func FastjsonGetString(vx *fastjson.Value) string {
     if vx.Type()==fastjson.TypeNull { return "" }
     if s, err := vx.StringBytes(); err==nil {
