@@ -83,6 +83,7 @@ type websocketDriver struct {
     
     dialParams wsDialParamsFunc
     initMessage wsFunc
+    lateInit wsFunc
     handleMessage wsHandleMessageFunc
 }
 
@@ -135,6 +136,7 @@ func (drv *websocketDriver) start() {
     if drv.initMessage!=nil { drv.initMessage() }
     drv.funcRetCh = make(chan string, 2)
     drv.funcErrCh = make(chan error, 2)
+    if drv.lateInit!=nil { drv.lateInit() }
     
     drv.errCh = make(chan error, 2)
     drv.channelsOpened = 1
