@@ -312,7 +312,7 @@ func (drv *BitfinexRTPublic) UnsubscribeTrades(market string) {
 }
 
 var bitfinexCmdSubscribeOrderBook0 = []byte(
-                `{"event":"subscribe","channel":"book","symbol":"t`)
+                `{"event":"subscribe","channel":"book","symbol":"f`)
 var bitfinexCmdSubscribeOrderBooEnd0 = []byte(`","freq":"F0","prec":"P0","len":"25"}`)
 
 func bitfinexSubscribeOrderBookCmd(market string) []byte {
