@@ -107,7 +107,7 @@ func (rh *RequestHandle) HandleHttpGetJson(httpClient fasthttp.HostClient,
 
 // headers - array of string-bytes, even elements are keys, odd are value
 func (rh *RequestHandle) HandleHttpPostJson(httpClient fasthttp.HostClient,
-                host, uri []byte, body *fastjson.Value,
+                host, uri []byte, body []byte,
                 headers [][]byte) (*fastjson.Value, int) {
     req := fasthttp.AcquireRequest()
     defer fasthttp.ReleaseRequest(req)
@@ -129,11 +129,7 @@ func (rh *RequestHandle) HandleHttpPostJson(httpClient fasthttp.HostClient,
         req.Header.AddBytesKV(headers[i], headers[i+1])
     }
     
-    bodyStr, err := body.StringBytes()
-    if err!=nil {
-        ErrorPanic("Error while getting body to HTTP request", err)
-    }
-    req.SetBodyRaw(bodyStr)
+    req.SetBodyRaw(body)
     
     rh.Response = fasthttp.AcquireResponse()
     if err := httpClient.Do(req, rh.Response); err!=nil {

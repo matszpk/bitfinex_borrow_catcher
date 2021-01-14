@@ -23,10 +23,48 @@
 package main
 
 import (
+    "crypto/hmac"
+    "crypto/sha512"
+    "encoding/hex"
+    "strconv"
+    "time"
     "github.com/valyala/fasthttp"
+    "github.com/valyala/fastjson"
+)
+
+var (
+    bitfinexStrNonce = []byte("bfx-nonce")
+    bitfinexStrApiKey = []byte("bfx-apkikey")
+    bitfinexStrSignature = []byte("bfx-signature")
 )
 
 type BitfinexPrivate struct {
     httpClient fasthttp.HostClient
     apiKey, apiSecret []byte
+}
+
+func (drv *BitfinexPrivate) handleHttpPostJson(rh *RequestHandle,
+                host, uri []byte, body *fastjson.Value) (*fastjson.Value, int) {
+    nonceB := strconv.AppendInt(nil ,time.Now().UnixNano(), 10)
+    // generate signature
+    bodyStr, err := body.StringBytes()
+    if err!=nil {
+        ErrorPanic("Can't get body string for HTTP POST request", err)
+    }
+    sig := make([]byte, 0, 200)
+    sig = append(sig, uri...)
+    sig = append(sig, nonceB...)
+    sig = append(sig, bodyStr...)
+    
+    sumGen := hmac.New(sha512.New384, drv.apiSecret)
+    sumGen.Write(sig)
+    sum := sumGen.Sum(nil)
+    sumHex := make([]byte, len(sum)*2)
+    hex.Encode(sumHex, sum)
+    
+    headers := [][]byte{
+        bitfinexStrNonce, nonceB, bitfinexStrApiKey, drv.apiKey,
+        bitfinexStrSignature, sumHex }
+    
+    return rh.HandleHttpPostJson(drv.httpClient, host, uri, bodyStr, headers)
 }
