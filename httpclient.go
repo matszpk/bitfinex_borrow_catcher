@@ -56,6 +56,7 @@ func CheckJsonContentType(respContentType []byte) bool {
 var UserAgentBytes []byte = []byte("cryptospeculator")
 
 var JsonParserPool fastjson.ParserPool
+var JsonArenaPool fastjson.ArenaPool
 
 type RequestHandle struct {
     JsonParser *fastjson.Parser
@@ -119,7 +120,8 @@ func (rh *RequestHandle) HandleHttpPostJson(httpClient fasthttp.HostClient,
     req.Header.SetMethod(fasthttp.MethodPost)
     req.SetHostBytes(host)
     req.Header.SetUserAgentBytes(UserAgentBytes)
-    req.Header.Add("Content-Type", "application/json")
+    req.Header.SetContentType("application/json")
+    req.Header.SetContentLength(len(body))
     req.Header.Add("Accept", "application/json")
     req.Header.Add("Accept-Encoding", "utf-8")
     
@@ -129,7 +131,7 @@ func (rh *RequestHandle) HandleHttpPostJson(httpClient fasthttp.HostClient,
         req.Header.AddBytesKV(headers[i], headers[i+1])
     }
     
-    req.SetBodyRaw(body)
+    req.SetBody(body)
     
     rh.Response = fasthttp.AcquireResponse()
     if err := httpClient.Do(req, rh.Response); err!=nil {
@@ -200,6 +202,14 @@ func FastjsonCheckString(vx *fastjson.Value, expected []byte) bool {
         return bytes.Equal(s, expected)
     }
     panic("Wrong json body: no string field")
+}
+
+func FastjsonGetInt(vx *fastjson.Value) int {
+    if vx.Type()==fastjson.TypeNull { return 0 }
+    if iv, err := vx.Int(); err==nil {
+        return iv
+    }
+    panic("Wrong json body: no integer field")
 }
 
 func FastjsonGetUInt(vx *fastjson.Value) uint {
