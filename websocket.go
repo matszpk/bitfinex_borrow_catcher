@@ -356,4 +356,16 @@ func (drv *websocketDriver) setErrorHandler(h ErrorHandler) {
 
 // resubscribe channels after reconnection
 func (drv* websocketDriver) resubscribeChannels() {
+    if drv.resubscribeChannel==nil { return }
+    drv.callMutex.Lock()
+    defer drv.callMutex.Unlock()
+    drv.resubscribeChannel(wsInitialize, "")
+    drv.tradeHandlers.Range(func(key, value interface{}) bool {
+        drv.resubscribeChannel(wsTrades, key.(string))
+        return true
+    })
+    drv.diffOrderBookHandlers.Range(func(key, value interface{}) bool {
+        drv.resubscribeChannel(wsDiffOrderBook, key.(string))
+        return true
+    })
 }
