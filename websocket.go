@@ -47,6 +47,12 @@ var dummyErrorHandlerPack errorHandlerPack = errorHandlerPack{}
 
 type wsChannelType uint8
 
+const (
+    wsTrades = iota
+    wsDiffOrderBook
+    wsInitialize
+)
+
 type wsFunc func()
 type wsDialParamsFunc func() (string, http.Header)
 type wsHandleMessageFunc func(msg []byte)
@@ -71,6 +77,9 @@ type websocketDriver struct {
     awaitingFuncRet uint32
     
     callMutex sync.Mutex
+    
+    tradeHandlers sync.Map
+    diffOrderBookHandlers sync.Map // with rtOBHandler
     
     dialParams wsDialParamsFunc
     initMessage wsFunc
@@ -309,6 +318,35 @@ func (drv *websocketDriver) handleMessages() {
                 good = false    // just stop
         }
     }
+}
+
+func (drv *websocketDriver) setTradeHandler(market string, h TradeHandler) {
+    drv.tradeHandlers.Store(market, h)
+}
+
+func (drv *websocketDriver) unsetTradeHandler(market string) {
+    drv.tradeHandlers.Delete(market)
+}
+
+func (drv *websocketDriver) callTradeHandler(market string, trade *Trade) {
+    h, ok := drv.tradeHandlers.Load(market)
+    if ok { h.(TradeHandler)(trade) }
+}
+
+func (drv *websocketDriver) setDiffOrderBookHandler(
+                            market string, h OrderBookHandler) {
+    drv.diffOrderBookHandlers.Store(market, newRtOrderBookHandle(market, h))
+}
+
+func (drv *websocketDriver) unsetDiffOrderBookHandler(market string) {
+    drv.diffOrderBookHandlers.Delete(market)
+}
+
+func (drv *websocketDriver) getDiffOrderBookHandle(
+                            market string) *rtOrderBookHandle {
+    rtOBH, ok := drv.diffOrderBookHandlers.Load(market)
+    if ok && rtOBH!=nil { return rtOBH.(*rtOrderBookHandle) }
+    return nil
 }
 
 func (drv *websocketDriver) setErrorHandler(h ErrorHandler) {

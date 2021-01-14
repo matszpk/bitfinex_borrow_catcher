@@ -305,13 +305,12 @@ type rtOrderBookHandle struct {
     toHandlePool sync.Pool
 }
 
-func newRtOrderBookHandle(rtName string, bookMaxDepth int, seqTime bool,
-                         fh OrderBookHandler) *rtOrderBookHandle {
-    rtob := &rtOrderBookHandle{ name: rtName, maxDepth: bookMaxDepth,
+func newRtOrderBookHandle(rtName string, fh OrderBookHandler) *rtOrderBookHandle {
+    rtob := &rtOrderBookHandle{ name: rtName, maxDepth: 25,
         h: fh, haveInitial: false, pendings: make([]rtOBPending, 0, seqNoElemsNum) }
     rtob.toHandlePool = sync.Pool{ New: rtob.newOrderBooks }
-    rtob.initial.Bid = make([]OrderBookEntry, 0, bookMaxDepth)
-    rtob.initial.Ask = make([]OrderBookEntry, 0, bookMaxDepth)
+    rtob.initial.Bid = make([]OrderBookEntry, 0, 25)
+    rtob.initial.Ask = make([]OrderBookEntry, 0, 25)
     return rtob
 }
 
