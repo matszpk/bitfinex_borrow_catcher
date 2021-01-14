@@ -29,8 +29,16 @@ import (
 )
 
 func main() {
-    bp := NewBitfinexPublic()
-    for _, c := range bp.GetCandles("USD", 30*60, time.Now().Add(-12*time.Hour), 1000) {
-        fmt.Println(c)
-    }
+    bprt := NewBitfinexRTPublic()
+    bprt.Start()
+    defer bprt.Stop()
+    
+    bprt.SubscribeTrades("BTC", func(t *Trade) {
+        fmt.Println("BTC", *t)
+    })
+    bprt.SubscribeTrades("USD", func(t *Trade) {
+        fmt.Println("USD", *t)
+    })
+    
+    time.Sleep(10*time.Minute)
 }

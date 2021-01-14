@@ -259,11 +259,11 @@ func (drv *BitfinexRTPublic) handleChannelMessageString(chType wsChannelType,
     drv.handleChannelMessage(chType, key, arr)
 }
 
-func (drv *BitfinexRTPublic) StartRealtime() {
+func (drv *BitfinexRTPublic) Start() {
     drv.start()
 }
 
-func (drv *BitfinexRTPublic) StopRealtime() {
+func (drv *BitfinexRTPublic) Stop() {
     drv.stop()
     drv.wsChannelMap = sync.Map{}
     drv.wsTradeChanIdMap = nil
