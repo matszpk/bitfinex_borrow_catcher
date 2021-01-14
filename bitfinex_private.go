@@ -36,6 +36,7 @@ var (
     bitfinexStrNonce = []byte("bfx-nonce")
     bitfinexStrApiKey = []byte("bfx-apkikey")
     bitfinexStrSignature = []byte("bfx-signature")
+    bitfinexStrApiPrefix = []byte("/api/")
 )
 
 type BitfinexPrivate struct {
@@ -52,6 +53,7 @@ func (drv *BitfinexPrivate) handleHttpPostJson(rh *RequestHandle,
         ErrorPanic("Can't get body string for HTTP POST request", err)
     }
     sig := make([]byte, 0, 200)
+    sig = append(sig, bitfinexStrApiPrefix...)
     sig = append(sig, uri...)
     sig = append(sig, nonceB...)
     sig = append(sig, bodyStr...)
