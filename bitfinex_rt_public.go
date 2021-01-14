@@ -35,7 +35,6 @@ import (
 
 var (
     bitfinexSocketConnectUrl = "wss://api-pub.bitfinex.com/ws/2"
-    bitfinexSocketConnectUrlTest = "ws://api-pub.bitfinex.com/ws/2"
     bitfinexStrEvent = []byte("event")
     bitfinexStrChanId = []byte("chanId")
     bitfinexStrMsg = []byte("msg")
