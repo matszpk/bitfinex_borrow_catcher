@@ -186,7 +186,9 @@ func (drv *BitfinexRTPublic) wsHandleMessage(msg []byte) {
 }
 
 func bitfinexGetOrderBookEntryDiffFromJson(v *fastjson.Value, diff *OrderBookEntryDiff) {
-    bitfinexGetOrderBookEntryFromJson(v, &diff.Obe)
+    neg := bitfinexGetOrderBookEntryFromJson(v, &diff.Obe)
+    diff.Side = SideOffer
+    if neg { diff.Side = SideBid }
 }
 
 func (drv *BitfinexRTPublic) handleChannelMessage(chType wsChannelType,
@@ -225,6 +227,7 @@ func (drv *BitfinexRTPublic) handleChannelMessage(chType wsChannelType,
                 // otherwise is single difference
                 var diff OrderBookEntryDiff
                 bitfinexGetOrderBookEntryDiffFromJson(arr[1], &diff)
+                fmt.Println("Diff:" , diff)
                 rtOBH := drv.getDiffOrderBookHandle(currency)
                 if rtOBH!=nil && !rtOBH.pushDiff(seqNo, &diff) {
                     // if no then resubscribe channel
@@ -361,7 +364,7 @@ func (drv *BitfinexRTPublic) UnsubscribeTrades(currency string) {
 
 var bitfinexCmdSubscribeOrderBook0 = []byte(
                 `{"event":"subscribe","channel":"book","symbol":"f`)
-var bitfinexCmdSubscribeOrderBooEnd0 = []byte(`","freq":"F0","prec":"P0","len":"25"}`)
+var bitfinexCmdSubscribeOrderBooEnd0 = []byte(`","freq":"F0","prec":"R0","len":"25"}`)
 
 func bitfinexSubscribeOrderBookCmd(currency string) []byte {
     cmdBytes := make([]byte, 0, 60)

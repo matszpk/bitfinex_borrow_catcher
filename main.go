@@ -33,11 +33,9 @@ func main() {
     bprt.Start()
     defer bprt.Stop()
     
-    bprt.SubscribeTrades("BTC", func(t *Trade) {
-        fmt.Println("BTC", *t)
-    })
-    bprt.SubscribeTrades("USD", func(t *Trade) {
-        fmt.Println("USD", *t)
+    bprt.SubscribeOrderBook("BTC", func(ob *OrderBook) {
+        fmt.Println("BTC Bid", ob.Bid)
+        fmt.Println("BTC Ask", ob.Ask)
     })
     
     time.Sleep(10*time.Minute)

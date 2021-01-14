@@ -189,16 +189,24 @@ func (stmp *OrderBook) applyDiff(sdest *OrderBook, diff *OrderBookEntryDiff) {
         stmpBidLen := len(stmp.Bid)
         sdest.Bid = sdest.Bid[:0]
         
+        toDelete := diff.Obe.Rate.IsZero()
         i, j := 0, stmpBidLen
-        for i<j {
-            h := (i+j)>>1
-            if diff.Obe.Rate.Cmp(ett[h].Rate) < 0 {
-                i = h+1
-            } else {
-                j = h
+        if !toDelete {
+            for i<j {
+                h := (i+j)>>1
+                if diff.Obe.Rate.Cmp(ett[h].Rate) < 0 {
+                    i = h+1
+                } else {
+                    j = h
+                }
+            }
+        } else {
+            for i=0; i < stmpBidLen; i++ {
+                if ett[i].Id == diff.Obe.Id {
+                    break
+                }
             }
         }
-        toDelete := diff.Obe.Amount.IsZero()
         
         if i < stmpBidLen {
             sdest.Bid = append(sdest.Bid, ett[:i]...)
@@ -206,7 +214,7 @@ func (stmp *OrderBook) applyDiff(sdest *OrderBook, diff *OrderBookEntryDiff) {
             if !toDelete {
                 sdest.Bid = append(sdest.Bid, diff.Obe)
             }
-            if r==0 {
+            if r==0 || toDelete {
                 i++ // skip, because replaced or deleted
             }
             xlen := stmpBidLen
@@ -224,6 +232,9 @@ func (stmp *OrderBook) applyDiff(sdest *OrderBook, diff *OrderBookEntryDiff) {
                 sdest.Bid = append(sdest.Bid, diff.Obe)
             }
         }
+        
+        sdest.Ask = stmp.Ask[:0]
+        sdest.Ask = append(sdest.Ask, stmp.Ask...)
     } else {
         // SideOffer
         maxDepth := cap(stmp.Ask)
@@ -232,15 +243,23 @@ func (stmp *OrderBook) applyDiff(sdest *OrderBook, diff *OrderBookEntryDiff) {
         sdest.Ask = sdest.Ask[:0]
         
         i, j := 0, stmpAskLen
-        for i<j {
-            h := (i+j)>>1
-            if diff.Obe.Rate.Cmp(ett[h].Rate) > 0 {
-                i = h+1
-            } else {
-                j = h
+        toDelete := diff.Obe.Rate.IsZero()
+        if !toDelete {
+            for i<j {
+                h := (i+j)>>1
+                if diff.Obe.Rate.Cmp(ett[h].Rate) > 0 {
+                    i = h+1
+                } else {
+                    j = h
+                }
+            }
+        } else {
+            for i=0; i < stmpAskLen; i++ {
+                if ett[i].Id == diff.Obe.Id {
+                    break
+                }
             }
         }
-        toDelete := diff.Obe.Amount.IsZero()
         
         if i < stmpAskLen {
             sdest.Ask = append(sdest.Ask, ett[:i]...)
@@ -248,7 +267,7 @@ func (stmp *OrderBook) applyDiff(sdest *OrderBook, diff *OrderBookEntryDiff) {
             if !toDelete {
                 sdest.Ask = append(sdest.Ask, diff.Obe)
             }
-            if r==0 {
+            if r==0 || toDelete {
                 i++ // skip, because replaced or deleted
             }
             xlen := stmpAskLen
@@ -266,6 +285,9 @@ func (stmp *OrderBook) applyDiff(sdest *OrderBook, diff *OrderBookEntryDiff) {
                 sdest.Ask = append(sdest.Ask, diff.Obe)
             }
         }
+        
+        sdest.Bid = stmp.Bid[:0]
+        sdest.Bid = append(sdest.Bid, stmp.Bid...)
     }
 }
 
