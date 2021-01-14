@@ -35,6 +35,7 @@ import (
 )
 
 type OrderBookHandler func(*OrderBook)
+type TradeHandler func(*Trade)
 
 type ErrorHandler func(error)
 
