@@ -1,4 +1,4 @@
-module github.com/matszpk/bitfinex_funding_catcher
+module github.com/matszpk/bitfinex_borrow_catcher
 
 go 1.15
 
