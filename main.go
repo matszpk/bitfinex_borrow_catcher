@@ -43,11 +43,13 @@ func Authenticate() ([]byte, []byte) {
 
 func main() {
     apiKey, secretKey := Authenticate()
-    //fmt.Println("APIKey:", string(apiKey))
-    //fmt.Println("SecretKey:", string(secretKey))
     bpriv := NewBitfinexPrivate(apiKey, secretKey)
     for _, c := range bpriv.GetFundingCreditsHistory("USD",
                                 time.Now().Add(-2*time.Hour), 100) {
         fmt.Println(c)
     }
+    /*bp := NewBitfinexPublic()
+    for _, t := range bp.GetTrades("USD", time.Time{}, 100) {
+        fmt.Println(t)
+    }*/
 }

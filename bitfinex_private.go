@@ -42,6 +42,7 @@ var (
     bitfinexStrEmptyJson = []byte("{}")
     bitfinexApiFundingLoans = []byte("v2/auth/r/funding/loans/f")
     bitfinexApiFundingCredits = []byte("v2/auth/r/funding/credits/f")
+    bitfinexApiFundingTrades = []byte("v2/auth/r/funding/trades/f")
 )
 
 type Loan struct {
@@ -160,7 +161,7 @@ func (drv *BitfinexPrivate) GetFundingLoansHistory(currency string,
     defer rh.Release()
     v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost, apiUrl, query,
                                     bitfinexStrEmptyJson)
-    if sc >= 400 { bitfinexPanic("Can't get funding loans", v, sc) }
+    if sc >= 400 { bitfinexPanic("Can't get funding loans history", v, sc) }
     
     arr := FastjsonGetArray(v)
     loansLen := len(arr)
@@ -232,7 +233,7 @@ func (drv *BitfinexPrivate) GetFundingCreditsHistory(currency string,
     defer rh.Release()
     v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost, apiUrl, query,
                                     bitfinexStrEmptyJson)
-    if sc >= 400 { bitfinexPanic("Can't get funding loans", v, sc) }
+    if sc >= 400 { bitfinexPanic("Can't get funding credits history", v, sc) }
     
     arr := FastjsonGetArray(v)
     creditsLen := len(arr)

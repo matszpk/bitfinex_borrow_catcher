@@ -118,10 +118,10 @@ func bitfinexGetTradeFromJson(v *fastjson.Value, trade *Trade) {
     trade.Id = FastjsonGetUInt64(arr[0])
     trade.TimeStamp = FastjsonGetUnixTimeMilli(arr[1])
     var neg bool
-    trade.Side = SideBid
+    trade.Side = SideOffer
     trade.Amount, neg = FastjsonGetUDec128Signed(arr[2], 8)
     if neg {
-        trade.Side = SideOffer
+        trade.Side = SideBid
     }
     trade.Rate = FastjsonGetUDec128(arr[3], 8)
     trade.Period = FastjsonGetUInt32(arr[4])
