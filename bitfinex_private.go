@@ -26,6 +26,7 @@ import (
     "crypto/hmac"
     "crypto/sha512"
     "encoding/hex"
+    "fmt"
     "strconv"
     "time"
     "github.com/matszpk/godec128"
@@ -43,6 +44,7 @@ var (
     bitfinexApiFundingLoans = []byte("v2/auth/r/funding/loans/f")
     bitfinexApiFundingCredits = []byte("v2/auth/r/funding/credits/f")
     bitfinexApiFundingTrades = []byte("v2/auth/r/funding/trades/f")
+    bitfinexApiSubmit = []byte("v2/auth/w/funding/offer/submit")
 )
 
 type Loan struct {
@@ -243,4 +245,26 @@ func (drv *BitfinexPrivate) GetFundingCreditsHistory(currency string,
         bitfinexGetCreditFromJson(v, &credits[i])
     }
     return credits
+}
+
+func (drv *BitfinexPrivate) SubmitBidOrder(currency string, amount,
+                                    rate godec128.UDec128, period uint32) {
+    body := make([]byte, 0, 80)
+    body = append(body, `{"type":"LIMIT","symbol":"f`...)
+    body = append(body, currency...)
+    body = append(body, `","amount":"-`...)
+    body = append(body, amount.FormatBytes(8, false)...)
+    body = append(body, `","rate":"`...)
+    body = append(body, rate.FormatBytes(8, false)...)
+    body = append(body, `","period":`...)
+    body = strconv.AppendUint(body, uint64(period), 10)
+    body = append(body, `,"flags":0}`...)
+    fmt.Println("body:", string(body))
+    
+    var rh RequestHandle
+    defer rh.Release()
+    v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost,
+                                    bitfinexApiSubmit, nil, body)
+    if sc >= 400 { bitfinexPanic("Can't submit order", v, sc) }
+    fmt.Println("response:", v)
 }

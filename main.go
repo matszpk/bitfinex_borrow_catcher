@@ -24,9 +24,9 @@ package main
 
 import (
     "fmt"
-    "time"
+    //"time"
     "github.com/chzyer/readline"
-    //"github.com/matszpk/godec128"
+    "github.com/matszpk/godec128"
 )
 
 func Authenticate() ([]byte, []byte) {
@@ -44,12 +44,10 @@ func Authenticate() ([]byte, []byte) {
 func main() {
     apiKey, secretKey := Authenticate()
     bpriv := NewBitfinexPrivate(apiKey, secretKey)
-    for _, c := range bpriv.GetFundingCreditsHistory("USD",
+    /*for _, c := range bpriv.GetFundingCreditsHistory("USD",
                                 time.Now().Add(-2*time.Hour), 100) {
         fmt.Println(c)
-    }
-    /*bp := NewBitfinexPublic()
-    for _, t := range bp.GetTrades("USD", time.Time{}, 100) {
-        fmt.Println(t)
     }*/
+    bpriv.SubmitBidOrder("USD", godec128.UDec128{51*100000000,0},
+                      godec128.UDec128{1233,0}, 2)
 }
