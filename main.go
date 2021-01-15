@@ -24,7 +24,7 @@ package main
 
 import (
     "fmt"
-    //"time"
+    "time"
     "github.com/chzyer/readline"
     //"github.com/matszpk/godec128"
 )
@@ -46,7 +46,8 @@ func main() {
     //fmt.Println("APIKey:", string(apiKey))
     //fmt.Println("SecretKey:", string(secretKey))
     bpriv := NewBitfinexPrivate(apiKey, secretKey)
-    for _, l := range bpriv.GetFundingLoans("USD") {
-        fmt.Println(l)
+    for _, c := range bpriv.GetFundingCreditsHistory("USD",
+                                time.Now().Add(-2*time.Hour), 100) {
+        fmt.Println(c)
     }
 }

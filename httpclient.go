@@ -108,12 +108,15 @@ func (rh *RequestHandle) HandleHttpGetJson(httpClient fasthttp.HostClient,
 
 // headers - array of string-bytes, even elements are keys, odd are value
 func (rh *RequestHandle) HandleHttpPostJson(httpClient fasthttp.HostClient,
-                host, uri []byte, body []byte,
+                host, uri, query []byte, body []byte,
                 headers [][]byte) (*fastjson.Value, int) {
     req := fasthttp.AcquireRequest()
     defer fasthttp.ReleaseRequest(req)
     
-    req.SetRequestURIBytes(uri)
+    uriWithQuery := make([]byte, 0, len(uri)+len(query))
+    uriWithQuery = append(uriWithQuery, uri...)
+    uriWithQuery = append(uriWithQuery, query...)
+    req.SetRequestURIBytes(uriWithQuery)
     if httpClient.IsTLS {   // fix for new fasthttp versions
         req.URI().SetScheme("https")
     }

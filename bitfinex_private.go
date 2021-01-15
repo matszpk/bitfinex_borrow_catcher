@@ -26,7 +26,6 @@ import (
     "crypto/hmac"
     "crypto/sha512"
     "encoding/hex"
-    "fmt"
     "strconv"
     "time"
     "github.com/matszpk/godec128"
@@ -42,6 +41,7 @@ var (
     bitfinexStrApiPrefix = []byte("/api/")
     bitfinexStrEmptyJson = []byte("{}")
     bitfinexApiFundingLoans = []byte("v2/auth/r/funding/loans/f")
+    bitfinexApiFundingCredits = []byte("v2/auth/r/funding/credits/f")
 )
 
 type Loan struct {
@@ -58,6 +58,11 @@ type Loan struct {
     NoClose bool
 }
 
+type Credit struct {
+    Loan
+    Market string
+}
+
 type BitfinexPrivate struct {
     httpClient fasthttp.HostClient
     apiKey, apiSecret []byte
@@ -71,7 +76,7 @@ func NewBitfinexPrivate(apiKey, apiSecret []byte) *BitfinexPrivate {
 }
 
 func (drv *BitfinexPrivate) handleHttpPostJson(rh *RequestHandle,
-                host, uri []byte, bodyStr []byte) (*fastjson.Value, int) {
+                host, uri, query []byte, bodyStr []byte) (*fastjson.Value, int) {
     nonceB := strconv.AppendInt(nil ,time.Now().UnixNano()/100000, 10)
     // generate signature
     sig := make([]byte, 0, 200)
@@ -82,7 +87,7 @@ func (drv *BitfinexPrivate) handleHttpPostJson(rh *RequestHandle,
     
     sumGen := hmac.New(sha512.New384, drv.apiSecret)
     if _, err := sumGen.Write(sig); err!=nil {
-        ErrorPanic("Arrgghh:", err)
+        ErrorPanic("Error while generating signature hash:", err)
     }
     sum := sumGen.Sum(nil)
     sumHex := make([]byte, len(sum)*2)
@@ -93,26 +98,26 @@ func (drv *BitfinexPrivate) handleHttpPostJson(rh *RequestHandle,
         bitfinexStrApiKey, drv.apiKey,
         bitfinexStrSignature, sumHex }
     
-    return rh.HandleHttpPostJson(drv.httpClient, host, uri, bodyStr, headers)
+    return rh.HandleHttpPostJson(drv.httpClient, host, uri, query, bodyStr, headers)
 }
 
 func bitfinexGetLoanFromJson(v *fastjson.Value, loan *Loan) {
     arr := FastjsonGetArray(v)
-    if len(arr) < 22 {
+    if len(arr) < 21 {
         panic("Wrong json body")
     }
     *loan = Loan{}
     loan.Id = FastjsonGetUInt64(arr[0])
-    loan.Currency = FastjsonGetString(arr[1])
+    loan.Currency = FastjsonGetString(arr[1])[1:]
     loan.Side = FastjsonGetInt(arr[2])
     loan.CreateTime = FastjsonGetUnixTimeMilli(arr[3])
     loan.UpdateTime = FastjsonGetUnixTimeMilli(arr[4])
     loan.Amount = FastjsonGetUDec128(arr[5], 8)
     loan.Status = FastjsonGetString(arr[7])
     loan.Rate = FastjsonGetUDec128(arr[11], 8)
-    loan.Period = FastjsonGetUInt32(arr[14])
-    loan.Renew = FastjsonGetUInt32(arr[19])!=0
-    loan.NoClose = FastjsonGetUInt32(arr[21])!=0
+    loan.Period = FastjsonGetUInt32(arr[12])
+    loan.Renew = FastjsonGetUInt32(arr[18])!=0
+    loan.NoClose = FastjsonGetUInt32(arr[20])!=0
 }
 
 func (drv *BitfinexPrivate) GetFundingLoans(currency string) []Loan {
@@ -122,11 +127,11 @@ func (drv *BitfinexPrivate) GetFundingLoans(currency string) []Loan {
         
     var rh RequestHandle
     defer rh.Release()
-    v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost, apiUrl, bitfinexStrEmptyJson)
+    v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost, apiUrl, nil,
+                                    bitfinexStrEmptyJson)
     if sc >= 400 { bitfinexPanic("Can't get funding loans", v, sc) }
     
     arr := FastjsonGetArray(v)
-    
     loansLen := len(arr)
     loans := make([]Loan, loansLen)
     
@@ -134,4 +139,107 @@ func (drv *BitfinexPrivate) GetFundingLoans(currency string) []Loan {
         bitfinexGetLoanFromJson(v, &loans[i])
     }
     return loans
+}
+
+func (drv *BitfinexPrivate) GetFundingLoansHistory(currency string,
+                                since time.Time, limit uint) []Loan {
+    apiUrl := make([]byte, 0, 60)
+    apiUrl = append(apiUrl, bitfinexApiFundingLoans...)
+    apiUrl = append(apiUrl, currency...)
+    apiUrl = append(apiUrl, "/hist"...)
+    query := make([]byte, 0, 40)
+    query = append(query, "?limit="...)
+    query = strconv.AppendUint(query, uint64(limit), 10)
+    if !since.IsZero() {
+        unixTime := since.Unix()*1000 + int64(since.Nanosecond()/1000000)
+        query = append(query, "&start="...)
+        query = strconv.AppendInt(query, unixTime, 10)
+    }
+    
+    var rh RequestHandle
+    defer rh.Release()
+    v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost, apiUrl, query,
+                                    bitfinexStrEmptyJson)
+    if sc >= 400 { bitfinexPanic("Can't get funding loans", v, sc) }
+    
+    arr := FastjsonGetArray(v)
+    loansLen := len(arr)
+    loans := make([]Loan, loansLen)
+    
+    for i, v := range arr {
+        bitfinexGetLoanFromJson(v, &loans[i])
+    }
+    return loans
+}
+
+func bitfinexGetCreditFromJson(v *fastjson.Value, credit *Credit) {
+    arr := FastjsonGetArray(v)
+    if len(arr) < 22 {
+        panic("Wrong json body")
+    }
+    *credit = Credit{}
+    credit.Id = FastjsonGetUInt64(arr[0])
+    credit.Currency = FastjsonGetString(arr[1])[1:]
+    credit.Side = FastjsonGetInt(arr[2])
+    credit.CreateTime = FastjsonGetUnixTimeMilli(arr[3])
+    credit.UpdateTime = FastjsonGetUnixTimeMilli(arr[4])
+    credit.Amount = FastjsonGetUDec128(arr[5], 8)
+    credit.Status = FastjsonGetString(arr[7])
+    credit.Rate = FastjsonGetUDec128(arr[11], 8)
+    credit.Period = FastjsonGetUInt32(arr[12])
+    credit.Renew = FastjsonGetUInt32(arr[18])!=0
+    credit.NoClose = FastjsonGetUInt32(arr[20])!=0
+    credit.Market = FastjsonGetString(arr[21])[1:]
+}
+
+func (drv *BitfinexPrivate) GetFundingCredits(currency string) []Credit {
+    apiUrl := make([]byte, 0, 60)
+    apiUrl = append(apiUrl, bitfinexApiFundingCredits...)
+    apiUrl = append(apiUrl, currency...)
+        
+    var rh RequestHandle
+    defer rh.Release()
+    v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost, apiUrl, nil,
+                                    bitfinexStrEmptyJson)
+    if sc >= 400 { bitfinexPanic("Can't get funding credits", v, sc) }
+    
+    arr := FastjsonGetArray(v)
+    creditsLen := len(arr)
+    credits := make([]Credit, creditsLen)
+    
+    for i, v := range arr {
+        bitfinexGetCreditFromJson(v, &credits[i])
+    }
+    return credits
+}
+
+func (drv *BitfinexPrivate) GetFundingCreditsHistory(currency string,
+                                since time.Time, limit uint) []Credit {
+    apiUrl := make([]byte, 0, 60)
+    apiUrl = append(apiUrl, bitfinexApiFundingCredits...)
+    apiUrl = append(apiUrl, currency...)
+    apiUrl = append(apiUrl, "/hist"...)
+    query := make([]byte, 0, 40)
+    query = append(query, "?limit="...)
+    query = strconv.AppendUint(query, uint64(limit), 10)
+    if !since.IsZero() {
+        unixTime := since.Unix()*1000 + int64(since.Nanosecond()/1000000)
+        query = append(query, "&start="...)
+        query = strconv.AppendInt(query, unixTime, 10)
+    }
+    
+    var rh RequestHandle
+    defer rh.Release()
+    v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost, apiUrl, query,
+                                    bitfinexStrEmptyJson)
+    if sc >= 400 { bitfinexPanic("Can't get funding loans", v, sc) }
+    
+    arr := FastjsonGetArray(v)
+    creditsLen := len(arr)
+    credits := make([]Credit, creditsLen)
+    
+    for i, v := range arr {
+        bitfinexGetCreditFromJson(v, &credits[i])
+    }
+    return credits
 }
