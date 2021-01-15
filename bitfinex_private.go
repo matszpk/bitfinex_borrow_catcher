@@ -1,7 +1,7 @@
 /*
  * bitfinex_private.go - Bitfinex Private client
  *
- * bitfinex_funding_catcher - Automatic funding catcher for open positions in
+ * bitfinex_borrow_catcher - Automatic borrow catcher for open positions in
  *                            the Bitfinex exchange
  * Copyright (C) 2021  Mateusz Szpakowski
  *
