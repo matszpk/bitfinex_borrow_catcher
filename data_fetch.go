@@ -105,7 +105,7 @@ func (df *DataFetcher) orderBookHandler(ob *OrderBook) {
     atomic.StoreInt64(&df.rtLastUpdate, time.Now().Unix())
 }
 
-func (df *DataFetcher) GetMarkerPrice() godec128.UDec128 {
+func (df *DataFetcher) GetUSDPrice() godec128.UDec128 {
     if df.usdFiat {
         return godec128.UDec128{ 100000000, 0 }
     }
