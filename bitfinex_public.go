@@ -25,6 +25,7 @@ package main
 import (
     "fmt"
     "strconv"
+    "strings"
     "time"
     "github.com/matszpk/godec128"
     "github.com/valyala/fasthttp"
@@ -36,6 +37,7 @@ var (
     bitfinexApiTrades = []byte("/v2/trades/f")
     bitfinexApiOrderBook = []byte("/v2/book/f")
     bitfinexApiCandles = []byte("/v2/candles/trade:")
+    bitfinexApiMarkets = []byte("v2/conf/pub:list:pair:exchange")
 )
 
 type Side uint8
@@ -45,6 +47,12 @@ const (
     SideBid Side = iota
     SideOffer
 )
+
+type Market struct {
+    Name string
+    BaseCurrency string
+    QuoteCurrency string
+}
 
 type Trade struct {
     Id uint64
@@ -108,6 +116,39 @@ func bitfinexPanic(msg string, v *fastjson.Value, sc int) {
         }
     }
     HttpPanic(msg, sc)
+}
+
+func bitfinexGetMarketsFromJson(v *fastjson.Value, market *Market) {
+    market.Name = FastjsonGetString(v)
+    if colonIdx := strings.IndexRune(market.Name, ':'); colonIdx>=0 {
+        market.BaseCurrency = market.Name[:colonIdx]
+        market.QuoteCurrency = market.Name[colonIdx+1:]
+    } else if len(market.Name)>3 {
+        mlen := len(market.Name)
+        market.BaseCurrency = market.Name[:mlen-3]
+        market.QuoteCurrency = market.Name[mlen-3:]
+    } else {
+        panic("Wrong market name")
+    }
+}
+
+func (drv *BitfinexPublic) GetMarkets() []Market {
+    var rh RequestHandle
+    defer rh.Release()
+    v, sc := rh.HandleHttpGetJson(drv.httpClient, bitfinexPubApiHost,
+                                  bitfinexApiMarkets, nil)
+    if sc >= 400 { bitfinexPanic("Can't get markets", v, sc) }
+    arr := FastjsonGetArray(v)
+    if len(arr) < 1 {
+        panic("Wrong json body")
+    }
+    arr = FastjsonGetArray(arr[0])
+    marketsLen := len(arr)
+    markets := make([]Market, marketsLen)
+    for i, v := range arr {
+        bitfinexGetMarketsFromJson(v, &markets[i])
+    }
+    return markets
 }
 
 func bitfinexGetTradeFromJson(v *fastjson.Value, trade *Trade) {
