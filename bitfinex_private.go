@@ -154,7 +154,7 @@ func bitfinexGetLoanFromJson(v *fastjson.Value, loan *Loan) {
     loan.NoClose = FastjsonGetUInt32(arr[20])!=0
 }
 
-func (drv *BitfinexPrivate) GetFundingLoans(currency string) []Loan {
+func (drv *BitfinexPrivate) GetLoans(currency string) []Loan {
     apiUrl := make([]byte, 0, 60)
     apiUrl = append(apiUrl, bitfinexApiFundingLoans...)
     apiUrl = append(apiUrl, currency...)
@@ -175,7 +175,7 @@ func (drv *BitfinexPrivate) GetFundingLoans(currency string) []Loan {
     return loans
 }
 
-func (drv *BitfinexPrivate) GetFundingLoansHistory(currency string,
+func (drv *BitfinexPrivate) GetLoansHistory(currency string,
                                 since time.Time, limit uint) []Loan {
     apiUrl := make([]byte, 0, 60)
     apiUrl = append(apiUrl, bitfinexApiFundingLoans...)
@@ -226,7 +226,7 @@ func bitfinexGetCreditFromJson(v *fastjson.Value, credit *Credit) {
     credit.Market = FastjsonGetString(arr[21])[1:]
 }
 
-func (drv *BitfinexPrivate) GetFundingCredits(currency string) []Credit {
+func (drv *BitfinexPrivate) GetCredits(currency string) []Credit {
     apiUrl := make([]byte, 0, 60)
     apiUrl = append(apiUrl, bitfinexApiFundingCredits...)
     apiUrl = append(apiUrl, currency...)
@@ -247,7 +247,7 @@ func (drv *BitfinexPrivate) GetFundingCredits(currency string) []Credit {
     return credits
 }
 
-func (drv *BitfinexPrivate) GetFundingCreditsHistory(currency string,
+func (drv *BitfinexPrivate) GetCreditsHistory(currency string,
                                 since time.Time, limit uint) []Credit {
     apiUrl := make([]byte, 0, 60)
     apiUrl = append(apiUrl, bitfinexApiFundingCredits...)
