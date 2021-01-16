@@ -70,14 +70,16 @@ func main() {
     bprt := NewBitfinexRTPublic()
     bprt.Start()
     defer bprt.Stop()
-    df := NewDataFetcher(bp, bprt, "USD")
-    for i:=0; i < 100; i++ {
-        fmt.Println("USD Status:")
-        fmt.Println("USD USD Price:", df.GetUSDPrice().Format(8, false))
+    df := NewDataFetcher(bp, bprt, "LTC")
+    df.Start()
+    defer df.Stop()
+    for i:=0; i < 5; i++ {
+        fmt.Println("LTC Status:")
+        fmt.Println("LTC LTC Price:", df.GetUSDPrice().Format(8, false))
         ob := df.GetOrderBook()
-        fmt.Println("USD Funding Bid:", ob.Bid)
-        fmt.Println("USD Funding Ask:", ob.Ask)
-        fmt.Println("USD Funding Trade:", *df.GetLastTrade())
+        fmt.Println("LTC Funding Bid:", ob.Bid)
+        fmt.Println("LTC Funding Ask:", ob.Ask)
+        fmt.Println("LTC Funding Trade:", *df.GetLastTrade())
         time.Sleep(5*time.Second)
     }
 }

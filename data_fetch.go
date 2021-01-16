@@ -23,7 +23,6 @@
 package main
 
 import (
-    "fmt"
     "sync"
     "sync/atomic"
     "time"
@@ -32,6 +31,7 @@ import (
 
 const maxRtPeriodUpdate = 60*5
 const maxPeriodUpdate = 10
+const dfUpdaterPeriod = time.Second*10
 
 var usdMarketsOnce sync.Once
 var usdMarkets map[string]Market
@@ -52,7 +52,7 @@ func initUSDMarkets() {
 }
 
 type DataFetcher struct {
-    mutex sync.Mutex
+    stopCh chan struct{}
     usdFiat bool
     noUsdPrice bool
     currency string
@@ -71,7 +71,8 @@ func NewDataFetcher(public *BitfinexPublic, rtPublic *BitfinexRTPublic,
                     currency string) *DataFetcher {
     usdMarketsOnce.Do(initUSDMarkets)
     
-    df := &DataFetcher{ usdFiat: false, noUsdPrice: false,
+    df := &DataFetcher{ stopCh: make(chan struct{}),
+        usdFiat: false, noUsdPrice: false,
         currency: currency, public: public, rtPublic: rtPublic,
         marketPriceLastUpdate: 0, orderBookLastUpdate: 0,
         rtLastUpdate: 0 }
@@ -91,6 +92,73 @@ func NewDataFetcher(public *BitfinexPublic, rtPublic *BitfinexRTPublic,
     }
     rtPublic.SubscribeOrderBook(currency, df.orderBookHandler)
     return df
+}
+
+func (df *DataFetcher) Start() {
+    df.marketPrice.Store(godec128.UDec128{})
+    df.orderBook.Store(&OrderBook{})
+    df.lastTrade.Store(&Trade{})
+    go df.updater()
+}
+
+func (df *DataFetcher) Stop() {
+    df.stopCh <- struct{}{}
+}
+
+func (df *DataFetcher) update() {
+    t := time.Now().Unix()
+    needUpdate := t - atomic.LoadInt64(&df.rtLastUpdate) >= maxRtPeriodUpdate
+    
+    mpObj := df.marketPrice.Load()
+    if !df.usdFiat && !df.noUsdPrice && (needUpdate || mpObj==nil) {
+        // get from HTTP
+        mp := df.public.GetMarketPrice(usdMarkets[df.currency].Name)
+        df.marketPrice.Store(mp)
+        atomic.StoreInt64(&df.marketPriceLastUpdate, t)
+    }
+    
+    obObj := df.orderBook.Load()
+    if needUpdate || obObj==nil {
+        // get from HTTP
+        var ob OrderBook
+        df.public.GetOrderBook(df.currency, &ob)
+        df.orderBook.Store(&ob)
+        atomic.StoreInt64(&df.orderBookLastUpdate, t)
+    }
+    
+    // get from HTTP
+    trades := df.public.GetTrades(df.currency, time.Time{}, 1)
+    atomic.StoreInt64(&df.tradeLastUpdate, t)
+    if len(trades)!=0 {
+        df.lastTrade.Store(&trades[0])
+    } else {
+        df.lastTrade.Store(&Trade{})
+    }
+}
+
+func (df *DataFetcher) safeUpdate() {
+    defer func() {
+        if x := recover(); x!=nil {
+            Logger.Error("Error while DataFetcher updating: ", x)
+        }
+    }()
+    df.update()
+}
+
+func (df *DataFetcher) updater() {
+    ticker := time.NewTicker(dfUpdaterPeriod)
+    defer ticker.Stop()
+    
+    df.safeUpdate()
+    stopped := false
+    for !stopped {
+        select {
+            case <- ticker.C:
+                df.safeUpdate()
+            case <- df.stopCh:
+                stopped = true
+        }
+    }
 }
 
 func (df *DataFetcher) IsUSDPrice() bool {
@@ -116,49 +184,13 @@ func (df *DataFetcher) GetUSDPrice() godec128.UDec128 {
     if df.noUsdPrice {
         panic("No USD Price")
     }
-    
-    t := time.Now().Unix()
-    mpObj := df.marketPrice.Load()
-    if mpObj==nil || (t - atomic.LoadInt64(&df.rtLastUpdate) >= maxRtPeriodUpdate &&
-        t - atomic.LoadInt64(&df.marketPriceLastUpdate) >= maxPeriodUpdate) {
-        // get from HTTP
-        mp := df.public.GetMarketPrice(usdMarkets[df.currency].Name)
-        df.marketPrice.Store(mp)
-        atomic.StoreInt64(&df.marketPriceLastUpdate, t)
-        return mp
-    }
-    return mpObj.(godec128.UDec128)
+    return df.marketPrice.Load().(godec128.UDec128)
 }
 
 func (df *DataFetcher) GetOrderBook() *OrderBook {
-    t := time.Now().Unix()
-    obObj := df.orderBook.Load()
-    if obObj==nil || (t - atomic.LoadInt64(&df.rtLastUpdate) >= maxRtPeriodUpdate &&
-        t - atomic.LoadInt64(&df.orderBookLastUpdate) >= maxPeriodUpdate) {
-        // get from HTTP
-        var ob OrderBook
-        df.public.GetOrderBook(df.currency, &ob)
-        df.orderBook.Store(&ob)
-        atomic.StoreInt64(&df.orderBookLastUpdate, t)
-        return &ob
-    }
-    return obObj.(*OrderBook)
+    return df.orderBook.Load().(*OrderBook)
 }
 
 func (df *DataFetcher) GetLastTrade() *Trade {
-    t := time.Now().Unix()
-    trObj := df.lastTrade.Load()
-    if trObj==nil || t - atomic.LoadInt64(&df.tradeLastUpdate) >= maxPeriodUpdate {
-        fmt.Println("fff")
-        // get from HTTP
-        trades := df.public.GetTrades(df.currency, time.Time{}, 1)
-        if len(trades)!=0 {
-            df.lastTrade.Store(&trades[0])
-            atomic.StoreInt64(&df.tradeLastUpdate, t)
-            return &trades[0]
-        } else { // no trade
-            return nil
-        }
-    }
-    return trObj.(*Trade)
+    return df.lastTrade.Load().(*Trade)
 }
