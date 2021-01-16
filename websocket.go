@@ -31,11 +31,13 @@ import (
     "sync"
     "sync/atomic"
     "time"
+    "github.com/matszpk/godec128"
     "github.com/gorilla/websocket"
 )
 
-type OrderBookHandler func(*OrderBook)
+type MarketPriceHandler func(godec128.UDec128)
 type TradeHandler func(*Trade)
+type OrderBookHandler func(*OrderBook)
 
 type ErrorHandler func(error)
 
@@ -48,7 +50,8 @@ var dummyErrorHandlerPack errorHandlerPack = errorHandlerPack{}
 type wsChannelType uint8
 
 const (
-    wsTrades = iota
+    wsMarketPrice = iota
+    wsTrades
     wsDiffOrderBook
     wsInitialize
 )
@@ -78,6 +81,7 @@ type websocketDriver struct {
     
     callMutex sync.Mutex
     
+    marketPriceHandlers sync.Map
     tradeHandlers sync.Map
     diffOrderBookHandlers sync.Map // with rtOBHandler
     
@@ -141,6 +145,10 @@ func (drv *websocketDriver) start() {
     drv.errCh = make(chan error, 2)
     drv.channelsOpened = 1
     
+    drv.marketPriceHandlers = sync.Map{}
+    drv.tradeHandlers = sync.Map{}
+    drv.diffOrderBookHandlers = sync.Map{}
+    
     go drv.handleMessages()
 }
 
@@ -155,14 +163,9 @@ func (drv *websocketDriver) stop() {
                     errors.New("Stopping realtime breaks function return"))
     }
     
-    /*drv.allTickersHandler.Store(&dummyTickersHandlerPack)
-    drv.allDailySummariesHandler.Store(&dummyDailySummariesHandlerPack)
-    drv.tickerHandlers = sync.Map{}
-    drv.dailySummaryHandlers = sync.Map{}
+    drv.marketPriceHandlers = sync.Map{}
     drv.tradeHandlers = sync.Map{}
-    drv.orderBookHandlers = sync.Map{}
     drv.diffOrderBookHandlers = sync.Map{}
-    drv.candleHandlers = sync.Map{}*/
     drv.errorHandler.Store(&dummyErrorHandlerPack)
     drv.reconnHandler = nil
     atomic.StoreUint32(&drv.channelsOpened, 0)
@@ -336,6 +339,19 @@ func (drv *websocketDriver) handleMessages() {
     }
 }
 
+func (drv *websocketDriver) setMarketPriceHandler(market string, h MarketPriceHandler) {
+    drv.marketPriceHandlers.Store(market, h)
+}
+
+func (drv *websocketDriver) unsetMarketPriceHandler(market string) {
+    drv.marketPriceHandlers.Delete(market)
+}
+
+func (drv *websocketDriver) callMarketPriceHandler(market string, mp godec128.UDec128) {
+    h, ok := drv.marketPriceHandlers.Load(market)
+    if ok { h.(MarketPriceHandler)(mp) }
+}
+
 func (drv *websocketDriver) setTradeHandler(market string, h TradeHandler) {
     drv.tradeHandlers.Store(market, h)
 }
@@ -376,6 +392,10 @@ func (drv* websocketDriver) resubscribeChannels() {
     drv.callMutex.Lock()
     defer drv.callMutex.Unlock()
     drv.resubscribeChannel(wsInitialize, "")
+    drv.marketPriceHandlers.Range(func(key, value interface{}) bool {
+        drv.resubscribeChannel(wsMarketPrice, key.(string))
+        return true
+    })
     drv.tradeHandlers.Range(func(key, value interface{}) bool {
         drv.resubscribeChannel(wsTrades, key.(string))
         return true
