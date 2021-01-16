@@ -58,7 +58,5 @@ func main() {
     bpriv.CancelOrder(res.Order.Id, &res)
     fmt.Println(res)*/
     bp := NewBitfinexPublic()
-    for _, m := range bp.GetMarkets() {
-        fmt.Println(m)
-    }
+    fmt.Println("BTCUSD", bp.GetMarketPrice("ADAUSD").Format(8, false))
 }

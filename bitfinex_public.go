@@ -38,6 +38,7 @@ var (
     bitfinexApiOrderBook = []byte("/v2/book/f")
     bitfinexApiCandles = []byte("/v2/candles/trade:")
     bitfinexApiMarkets = []byte("v2/conf/pub:list:pair:exchange")
+    bitfinexApiTicker = []byte("/v2/ticker/t")
 )
 
 type Side uint8
@@ -150,6 +151,24 @@ func (drv *BitfinexPublic) GetMarkets() []Market {
     }
     return markets
 }
+
+func (drv *BitfinexPublic) GetMarketPrice(market string) godec128.UDec128 {
+    apiUrl := make([]byte, 0, 20)
+    apiUrl = append(apiUrl, bitfinexApiTicker...)
+    apiUrl = append(apiUrl, market...)
+    
+    var rh RequestHandle
+    defer rh.Release()
+    v, sc := rh.HandleHttpGetJson(drv.httpClient, bitfinexPubApiHost, apiUrl, nil)
+    if sc >= 400 { bitfinexPanic("Can't get ticker", v, sc) }
+    
+    arr := FastjsonGetArray(v)
+    if len(arr) < 7 {
+        panic("Wrong json body")
+    }
+    return FastjsonGetUDec128(arr[6], 8)
+}
+
 
 func bitfinexGetTradeFromJson(v *fastjson.Value, trade *Trade) {
     arr := FastjsonGetArray(v)
