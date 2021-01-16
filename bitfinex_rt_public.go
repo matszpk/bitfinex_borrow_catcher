@@ -44,6 +44,7 @@ var (
 type BitfinexRTPublic struct {
     websocketDriver
     wsChannelMap sync.Map
+    wsMarketPriceChanIdMap map[string]string
     wsTradeChanIdMap map[string]string
     wsOrderBookChanIdMap map[string]string
     wsOrderBookBrokenMap sync.Map
@@ -104,6 +105,7 @@ func (drv *BitfinexRTPublic) wsInitMessage() {
 
 func (drv *BitfinexRTPublic) wsLateInit() {
     drv.wsChannelMap = sync.Map{}
+    drv.wsMarketPriceChanIdMap = make(map[string]string)
     drv.wsTradeChanIdMap = make(map[string]string)
     drv.wsOrderBookChanIdMap = make(map[string]string)
     drv.wsOrderBookBrokenMap = sync.Map{}
@@ -192,8 +194,19 @@ func bitfinexGetOrderBookEntryDiffFromJson(v *fastjson.Value, diff *OrderBookEnt
 }
 
 func (drv *BitfinexRTPublic) handleChannelMessage(chType wsChannelType,
-                        currency string, arr []*fastjson.Value) {
+                        key string, arr []*fastjson.Value) {
     switch chType {
+        case wsMarketPrice: {
+            if len(arr) < 2 {
+                drv.sendErr(drv.errCh, errors.New("Wrong ticker message"))
+                return
+            }
+            arr := FastjsonGetArray(arr[1])
+            if len(arr) < 7 {
+                panic("Wrong json body")
+            }
+            drv.callMarketPriceHandler(key, FastjsonGetUDec128(arr[6], 8))
+        }
         case wsTrades: {
             if len(arr) < 3 {
                 drv.sendErr(drv.errCh, errors.New("Wrong trades message"))
@@ -204,7 +217,7 @@ func (drv *BitfinexRTPublic) handleChannelMessage(chType wsChannelType,
                     arr[2].GetArray()[0].Type()!=fastjson.TypeArray {
                 var trade Trade
                 bitfinexGetTradeFromJson(arr[2], &trade)
-                drv.callTradeHandler(currency, &trade)
+                drv.callTradeHandler(key, &trade)
             }
         }
         case wsDiffOrderBook: {
@@ -219,23 +232,23 @@ func (drv *BitfinexRTPublic) handleChannelMessage(chType wsChannelType,
                 // if initial orderbook snapshot
                 var ob OrderBook
                 bitfinexGetOrderBookFromJson(arr[1], &ob)
-                rtOBH := drv.getDiffOrderBookHandle(currency)
+                rtOBH := drv.getDiffOrderBookHandle(key)
                 rtOBH.pushInitial(seqNo, &ob)
                 // unmark that is orderbook is broken
-                drv.wsOrderBookBrokenMap.Delete(currency)
+                drv.wsOrderBookBrokenMap.Delete(key)
             } else {
                 // otherwise is single difference
                 var diff OrderBookEntryDiff
                 bitfinexGetOrderBookEntryDiffFromJson(arr[1], &diff)
                 fmt.Println("Diff:" , diff)
-                rtOBH := drv.getDiffOrderBookHandle(currency)
+                rtOBH := drv.getDiffOrderBookHandle(key)
                 if rtOBH!=nil && !rtOBH.pushDiff(seqNo, &diff) {
                     // if no then resubscribe channel
                     // mark that is orderbook is broken
-                    broken, ok := drv.wsOrderBookBrokenMap.LoadOrStore(currency, true)
+                    broken, ok := drv.wsOrderBookBrokenMap.LoadOrStore(key, true)
                     if !ok || !broken.(bool) {
-                        drv.resubscribeOrderBook(currency)
-                        drv.wsOrderBookBrokenMap.Store(currency, true)
+                        drv.resubscribeOrderBook(key)
+                        drv.wsOrderBookBrokenMap.Store(key, true)
                     }
                 }
             }
@@ -268,6 +281,7 @@ func (drv *BitfinexRTPublic) Start() {
 func (drv *BitfinexRTPublic) Stop() {
     drv.stop()
     drv.wsChannelMap = sync.Map{}
+    drv.wsMarketPriceChanIdMap = nil
     drv.wsTradeChanIdMap = nil
     drv.wsOrderBookChanIdMap = nil
     drv.wsOrderBookBrokenMap = sync.Map{} // clear map
@@ -290,7 +304,7 @@ func (drv *BitfinexRTPublic) handleCommand(cmdBytes []byte) string {
 
 var bitfinexCmdUnsubscribe0 = []byte(`{"event":"unsubscribe","chanId":`)
 
-var bitfinexCmdSubscribeTicker0 = []byte(
+var bitfinexCmdSubscribeMarketPrice0 = []byte(
                 `{"event":"subscribe","channel":"ticker","symbol":"t`)
 var bitfinexCmdEnd0 = []byte(`"}`)
 
@@ -327,6 +341,43 @@ func bitfinexUnsubscribeCmd(chanId string) []byte {
     cmdBytes = append(cmdBytes, chanId...)
     cmdBytes = append(cmdBytes, '}')
     return cmdBytes
+}
+
+func bitfinexSubscribeMarketPriceCmd(market string) []byte {
+    cmdBytes := make([]byte, 0, 60)
+    cmdBytes = append(cmdBytes, bitfinexCmdSubscribeMarketPrice0...)
+    cmdBytes = append(cmdBytes, market...)
+    cmdBytes = append(cmdBytes, bitfinexCmdEnd0...)
+    return cmdBytes
+}
+
+// internal routine SubscribeMarketPrice (for resubscription after reconnection)
+func (drv *BitfinexRTPublic) subscribeMarketPriceInt(market string, h MarketPriceHandler) {
+    chanId := drv.handleCommand(bitfinexSubscribeMarketPriceCmd(market))
+    if h!=nil { // conditional used by resubscription after reconnection
+        drv.setMarketPriceHandler(market, h)
+    }
+    
+    drv.wsMarketPriceChanIdMap[market] = chanId
+    drv.wsAddChannel(chanId, wsMarketPrice, market, false)
+}
+
+func (drv *BitfinexRTPublic) SubscribeMarketPrice(market string, h MarketPriceHandler) {
+    drv.callMutex.Lock()
+    defer drv.callMutex.Unlock()
+    drv.subscribeMarketPriceInt(market, h)
+}
+
+func (drv *BitfinexRTPublic) UnsubscribeMarketPrice(market string) {
+    drv.callMutex.Lock()
+    defer drv.callMutex.Unlock()
+    
+    chanId := drv.wsMarketPriceChanIdMap[market]
+    drv.handleCommand(bitfinexUnsubscribeCmd(chanId))
+    drv.unsetMarketPriceHandler(market)
+    
+    delete(drv.wsMarketPriceChanIdMap, market)
+    drv.wsChannelMap.Delete(chanId)
 }
 
 // internal routine SubscribeTrades (for resubscription after reconnection)
@@ -427,6 +478,8 @@ func (drv *BitfinexRTPublic) wsResubscribeChannel(chType wsChannelType, key stri
     switch chType {
         case wsInitialize:
             drv.wsLateInit()
+        case wsMarketPrice:
+            drv.subscribeMarketPriceInt(key, nil)
         case wsTrades:
             drv.subscribeTradesInt(key, nil)
         case wsDiffOrderBook:

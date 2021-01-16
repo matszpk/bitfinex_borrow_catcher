@@ -24,9 +24,9 @@ package main
 
 import (
     "fmt"
-    //"time"
+    "time"
     "github.com/chzyer/readline"
-    //"github.com/matszpk/godec128"
+    "github.com/matszpk/godec128"
 )
 
 func Authenticate() ([]byte, []byte) {
@@ -57,6 +57,13 @@ func main() {
     fmt.Println("Canceling order:", res.Order.Id)
     bpriv.CancelOrder(res.Order.Id, &res)
     fmt.Println(res)*/
-    bp := NewBitfinexPublic()
-    fmt.Println("BTCUSD", bp.GetMarketPrice("ADAUSD").Format(8, false))
+    /*bp := NewBitfinexPublic()
+    fmt.Println("BTCUSD", bp.GetMarketPrice("ADAUSD").Format(8, false))*/
+    bprt := NewBitfinexRTPublic()
+    bprt.Start()
+    defer bprt.Stop()
+    bprt.SubscribeMarketPrice("BTCUSD", func(mp godec128.UDec128) {
+        fmt.Println("BTC Price:", mp.Format(8, false))
+    })
+    time.Sleep(time.Minute*10)
 }
