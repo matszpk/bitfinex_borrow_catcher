@@ -76,6 +76,14 @@ type OrderBook struct {
     Ask []OrderBookEntry
 }
 
+func (ob *OrderBook) copyFrom(src *OrderBook) {
+    blen, alen := len(src.Bid), len(src.Ask)
+    ob.Bid = make([]OrderBookEntry, blen)
+    ob.Ask = make([]OrderBookEntry, alen)
+    copy(ob.Bid, src.Bid[:blen])
+    copy(ob.Ask, src.Ask[:blen])
+}
+
 // Candle structure
 type Candle struct {
     TimeStamp time.Time     /// timestamp
@@ -254,7 +262,7 @@ func (drv *BitfinexPublic) GetOrderBook(currency string, ob *OrderBook) {
     apiUrl := make([]byte, 0, 60)
     apiUrl = append(apiUrl, bitfinexApiOrderBook...)
     apiUrl = append(apiUrl, currency...)
-    apiUrl = append(apiUrl, "/R0?len=100"...)
+    apiUrl = append(apiUrl, "/R0?len=25"...)
     
     var rh RequestHandle
     defer rh.Release()
