@@ -201,11 +201,7 @@ func (drv *BitfinexRTPublic) handleChannelMessage(chType wsChannelType,
                 drv.sendErr(drv.errCh, errors.New("Wrong ticker message"))
                 return
             }
-            arr := FastjsonGetArray(arr[1])
-            if len(arr) < 7 {
-                panic("Wrong json body")
-            }
-            drv.callMarketPriceHandler(key, FastjsonGetUDec128(arr[6], 8))
+            drv.callMarketPriceHandler(key, bitfinexGetMarketPriceFromJson(arr[1]))
         }
         case wsTrades: {
             if len(arr) < 3 {

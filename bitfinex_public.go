@@ -152,6 +152,14 @@ func (drv *BitfinexPublic) GetMarkets() []Market {
     return markets
 }
 
+func bitfinexGetMarketPriceFromJson(v *fastjson.Value) godec128.UDec128 {
+    arr := FastjsonGetArray(v)
+    if len(arr) < 7 {
+        panic("Wrong json body")
+    }
+    return FastjsonGetUDec128(arr[6], 8)
+}
+
 func (drv *BitfinexPublic) GetMarketPrice(market string) godec128.UDec128 {
     apiUrl := make([]byte, 0, 20)
     apiUrl = append(apiUrl, bitfinexApiTicker...)
@@ -162,11 +170,7 @@ func (drv *BitfinexPublic) GetMarketPrice(market string) godec128.UDec128 {
     v, sc := rh.HandleHttpGetJson(drv.httpClient, bitfinexPubApiHost, apiUrl, nil)
     if sc >= 400 { bitfinexPanic("Can't get ticker", v, sc) }
     
-    arr := FastjsonGetArray(v)
-    if len(arr) < 7 {
-        panic("Wrong json body")
-    }
-    return FastjsonGetUDec128(arr[6], 8)
+    return bitfinexGetMarketPriceFromJson(v)
 }
 
 
