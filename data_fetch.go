@@ -74,15 +74,17 @@ func NewDataFetcher(public *BitfinexPublic, rtPublic *BitfinexRTPublic,
         marketPriceLastUpdate: 0, orderBookLastUpdate: 0,
         rtLastUpdate: 0 }
     
-    if market, ok := usdMarkets[currency]; ok {
-        df.usdFiat = false
-    } else if market.QuoteCurrency!="USD" || market.QuoteCurrency!="UST" {
-        df.noUsdPrice = true
+    if currency!="USD" && currency!="UST" {
+        if _, ok := usdMarkets[currency]; ok {
+            df.usdFiat = false
+        } else {
+            df.noUsdPrice = true
+        }
     } else {
         df.usdFiat = true
     }
     
-    if !df.noUsdPrice || !df.usdFiat {
+    if !df.noUsdPrice && !df.usdFiat {
         rtPublic.SubscribeMarketPrice(usdMarkets[df.currency].Name, df.marketPriceHandler)
     }
     rtPublic.SubscribeOrderBook(currency, df.orderBookHandler)
