@@ -32,8 +32,28 @@ import (
 const maxRtPeriodUpdate = 60*5
 const maxPeriodUpdate = 30
 
+var usdMarketsOnce sync.Once
+var usdMarkets map[string]Market
+
+func initUSDMarkets() {
+    bp := NewBitfinexPublic()
+    markets := bp.GetMarkets()
+    
+    usdMarkets = make(map[string]Market)
+    for _, m := range markets {
+        if m.QuoteCurrency == "USD" || m.QuoteCurrency == "UST" {
+            // insert if entry is empty or if quote currency is USD
+            if _, ok := usdMarkets[m.BaseCurrency]; !ok || m.QuoteCurrency=="USD" {
+                usdMarkets[m.BaseCurrency] = m // 
+            }
+        }
+    }
+}
+
 type DataFetcher struct {
     mutex sync.Mutex
+    usdFiat bool
+    noUsdPrice bool
     currency string
     public *BitfinexPublic
     rtPublic *BitfinexRTPublic
@@ -47,12 +67,30 @@ type DataFetcher struct {
 
 func NewDataFetcher(public *BitfinexPublic, rtPublic *BitfinexRTPublic,
                     currency string) *DataFetcher {
-    df := &DataFetcher{ currency: currency, public: public, rtPublic: rtPublic,
+    usdMarketsOnce.Do(initUSDMarkets)
+    
+    df := &DataFetcher{ usdFiat: false, noUsdPrice: false,
+        currency: currency, public: public, rtPublic: rtPublic,
         marketPriceLastUpdate: 0, orderBookLastUpdate: 0,
         rtLastUpdate: 0 }
-    rtPublic.SubscribeMarketPrice(currency, df.marketPriceHandler)
+    
+    if market, ok := usdMarkets[currency]; ok {
+        df.usdFiat = false
+    } else if market.QuoteCurrency!="USD" || market.QuoteCurrency!="UST" {
+        df.noUsdPrice = true
+    } else {
+        df.usdFiat = true
+    }
+    
+    if !df.noUsdPrice || !df.usdFiat {
+        rtPublic.SubscribeMarketPrice(usdMarkets[df.currency].Name, df.marketPriceHandler)
+    }
     rtPublic.SubscribeOrderBook(currency, df.orderBookHandler)
     return df
+}
+
+func (df *DataFetcher) IsUSDPrice() bool {
+    return !df.noUsdPrice
 }
 
 func (df *DataFetcher) marketPriceHandler(mp godec128.UDec128) {
@@ -68,11 +106,18 @@ func (df *DataFetcher) orderBookHandler(ob *OrderBook) {
 }
 
 func (df *DataFetcher) GetMarkerPrice() godec128.UDec128 {
+    if df.usdFiat {
+        return godec128.UDec128{ 100000000, 0 }
+    }
+    if df.noUsdPrice {
+        panic("No USD Price")
+    }
+    
     t := time.Now().Unix()
     if t - atomic.LoadInt64(&df.rtLastUpdate) >= maxRtPeriodUpdate &&
         t - atomic.LoadInt64(&df.marketPriceLastUpdate) >= maxPeriodUpdate {
         // get from HTTP
-        mp := df.public.GetMarketPrice(df.currency)
+        mp := df.public.GetMarketPrice(usdMarkets[df.currency].Name)
         df.marketPrice.Store(mp)
         atomic.StoreInt64(&df.marketPriceLastUpdate, t)
         return mp
