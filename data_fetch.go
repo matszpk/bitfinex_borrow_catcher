@@ -23,6 +23,7 @@
 package main
 
 import (
+    "fmt"
     "sync"
     "sync/atomic"
     "time"
@@ -30,7 +31,7 @@ import (
 )
 
 const maxRtPeriodUpdate = 60*5
-const maxPeriodUpdate = 30
+const maxPeriodUpdate = 10
 
 var usdMarketsOnce sync.Once
 var usdMarkets map[string]Market
@@ -59,10 +60,11 @@ type DataFetcher struct {
     rtPublic *BitfinexRTPublic
     marketPriceLastUpdate int64         // atomic
     orderBookLastUpdate int64         // atomic
+    tradeLastUpdate int64
     rtLastUpdate int64     // atomic
     marketPrice atomic.Value
     orderBook atomic.Value
-    lastTrades atomic.Value
+    lastTrade atomic.Value
 }
 
 func NewDataFetcher(public *BitfinexPublic, rtPublic *BitfinexRTPublic,
@@ -143,6 +145,20 @@ func (df *DataFetcher) GetOrderBook() *OrderBook {
     return obObj.(*OrderBook)
 }
 
-func (df *DataFetcher) GetLastTrades() []Trade {
-    return nil
+func (df *DataFetcher) GetLastTrade() *Trade {
+    t := time.Now().Unix()
+    trObj := df.lastTrade.Load()
+    if trObj==nil || t - atomic.LoadInt64(&df.tradeLastUpdate) >= maxPeriodUpdate {
+        fmt.Println("fff")
+        // get from HTTP
+        trades := df.public.GetTrades(df.currency, time.Time{}, 1)
+        if len(trades)!=0 {
+            df.lastTrade.Store(&trades[0])
+            atomic.StoreInt64(&df.tradeLastUpdate, t)
+            return &trades[0]
+        } else { // no trade
+            return nil
+        }
+    }
+    return trObj.(*Trade)
 }

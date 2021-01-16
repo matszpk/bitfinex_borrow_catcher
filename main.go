@@ -77,6 +77,7 @@ func main() {
         ob := df.GetOrderBook()
         fmt.Println("USD Funding Bid:", ob.Bid)
         fmt.Println("USD Funding Ask:", ob.Ask)
+        fmt.Println("USD Funding Trade:", *df.GetLastTrade())
         time.Sleep(5*time.Second)
     }
 }
