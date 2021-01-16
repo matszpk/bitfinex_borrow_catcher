@@ -65,6 +65,10 @@ type DataFetcher struct {
     marketPrice atomic.Value
     orderBook atomic.Value
     lastTrade atomic.Value
+    tradeHandler TradeHandler
+    marketPriceHandlerU MarketPriceHandler
+    orderBookHandlerU OrderBookHandler
+    lastTradeHandlerU TradeHandler
 }
 
 func NewDataFetcher(public *BitfinexPublic, rtPublic *BitfinexRTPublic,
@@ -94,6 +98,18 @@ func NewDataFetcher(public *BitfinexPublic, rtPublic *BitfinexRTPublic,
     return df
 }
 
+func (df *DataFetcher) SetUSDPriceHandler(mh MarketPriceHandler) {
+    df.marketPriceHandlerU = mh
+}
+
+func (df *DataFetcher) SetOrderBookHandler(oh OrderBookHandler) {
+    df.orderBookHandlerU = oh
+}
+
+func (df *DataFetcher) SetLastTradeHandler(th TradeHandler) {
+    df.lastTradeHandlerU = th
+}
+
 func (df *DataFetcher) Start() {
     df.marketPrice.Store(godec128.UDec128{})
     df.orderBook.Store(&OrderBook{})
@@ -115,6 +131,9 @@ func (df *DataFetcher) update() {
         mp := df.public.GetMarketPrice(usdMarkets[df.currency].Name)
         df.marketPrice.Store(mp)
         atomic.StoreInt64(&df.marketPriceLastUpdate, t)
+        if df.marketPriceHandlerU!=nil {
+            df.marketPriceHandlerU(mp)
+        }
     }
     
     obObj := df.orderBook.Load()
@@ -124,6 +143,9 @@ func (df *DataFetcher) update() {
         df.public.GetOrderBook(df.currency, &ob)
         df.orderBook.Store(&ob)
         atomic.StoreInt64(&df.orderBookLastUpdate, t)
+        if df.orderBookHandlerU!=nil {
+            df.orderBookHandlerU(&ob)
+        }
     }
     
     // get from HTTP
@@ -131,6 +153,9 @@ func (df *DataFetcher) update() {
     atomic.StoreInt64(&df.tradeLastUpdate, t)
     if len(trades)!=0 {
         df.lastTrade.Store(&trades[0])
+        if df.lastTradeHandlerU!=nil {
+            df.lastTradeHandlerU(&trades[0])
+        }
     } else {
         df.lastTrade.Store(&Trade{})
     }
@@ -168,6 +193,9 @@ func (df *DataFetcher) IsUSDPrice() bool {
 func (df *DataFetcher) marketPriceHandler(mp godec128.UDec128) {
     df.marketPrice.Store(mp)
     atomic.StoreInt64(&df.rtLastUpdate, time.Now().Unix())
+    if df.marketPriceHandlerU!=nil {
+        df.marketPriceHandlerU(mp)
+    }
 }
 
 func (df *DataFetcher) orderBookHandler(ob *OrderBook) {
@@ -175,6 +203,9 @@ func (df *DataFetcher) orderBookHandler(ob *OrderBook) {
     newOb.copyFrom(ob)        // copy to avoid problems
     df.orderBook.Store(&newOb)
     atomic.StoreInt64(&df.rtLastUpdate, time.Now().Unix())
+    if df.orderBookHandlerU!=nil {
+        df.orderBookHandlerU(&newOb)
+    }
 }
 
 func (df *DataFetcher) GetUSDPrice() godec128.UDec128 {
