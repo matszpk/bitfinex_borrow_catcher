@@ -38,7 +38,7 @@ type seqNoElem interface {
  * for ordering seqNos and handling holes
  */
 
-const seqNoElemsNum = 200
+const seqNoElemsNum = 10
 
 type seqNoHandler struct {
     haveSeqNo bool

@@ -26,7 +26,7 @@ import (
     "fmt"
     "time"
     "github.com/chzyer/readline"
-    "github.com/matszpk/godec128"
+    //"github.com/matszpk/godec128"
 )
 
 func Authenticate() ([]byte, []byte) {
@@ -59,11 +59,24 @@ func main() {
     fmt.Println(res)*/
     /*bp := NewBitfinexPublic()
     fmt.Println("BTCUSD", bp.GetMarketPrice("ADAUSD").Format(8, false))*/
-    bprt := NewBitfinexRTPublic()
+    /*bprt := NewBitfinexRTPublic()
     bprt.Start()
     defer bprt.Stop()
     bprt.SubscribeMarketPrice("BTCUSD", func(mp godec128.UDec128) {
         fmt.Println("BTC Price:", mp.Format(8, false))
     })
-    time.Sleep(time.Minute*10)
+    time.Sleep(time.Minute*10)*/
+    bp := NewBitfinexPublic()
+    bprt := NewBitfinexRTPublic()
+    bprt.Start()
+    defer bprt.Stop()
+    df := NewDataFetcher(bp, bprt, "USD")
+    for i:=0; i < 100; i++ {
+        fmt.Println("USD Status:")
+        fmt.Println("USD USD Price:", df.GetUSDPrice().Format(8, false))
+        ob := df.GetOrderBook()
+        fmt.Println("USD Funding Bid:", ob.Bid)
+        fmt.Println("USD Funding Ask:", ob.Ask)
+        time.Sleep(5*time.Second)
+    }
 }

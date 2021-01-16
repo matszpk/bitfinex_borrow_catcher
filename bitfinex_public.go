@@ -81,7 +81,7 @@ func (ob *OrderBook) copyFrom(src *OrderBook) {
     ob.Bid = make([]OrderBookEntry, blen)
     ob.Ask = make([]OrderBookEntry, alen)
     copy(ob.Bid, src.Bid[:blen])
-    copy(ob.Ask, src.Ask[:blen])
+    copy(ob.Ask, src.Ask[:alen])
 }
 
 // Candle structure
@@ -195,7 +195,7 @@ func bitfinexGetTradeFromJson(v *fastjson.Value, trade *Trade) {
     if neg {
         trade.Side = SideBid
     }
-    trade.Rate = FastjsonGetUDec128(arr[3], 8)
+    trade.Rate = FastjsonGetUDec128(arr[3], 12)
     trade.Period = FastjsonGetUInt32(arr[4])
 }
 
@@ -234,7 +234,7 @@ func bitfinexGetOrderBookEntryFromJson(v *fastjson.Value, obe *OrderBookEntry) b
     }
     obe.Id = FastjsonGetUInt64(arr[0])
     obe.Period = FastjsonGetUInt32(arr[1])
-    obe.Rate = FastjsonGetUDec128(arr[2], 8)
+    obe.Rate = FastjsonGetUDec128(arr[2], 12)
     var neg bool
     obe.Amount, neg = FastjsonGetUDec128Signed(arr[3], 8)
     return neg
@@ -298,11 +298,11 @@ func bitfinexGetCandleFromJson(v *fastjson.Value, candle *Candle) {
         panic("Wrong json body")
     }
     candle.TimeStamp = FastjsonGetUnixTimeMilli(arr[0])
-    candle.Open = FastjsonGetUDec128(arr[1], 8)
-    candle.Close = FastjsonGetUDec128(arr[2], 8)
-    candle.High = FastjsonGetUDec128(arr[3], 8)
-    candle.Low = FastjsonGetUDec128(arr[4], 8)
-    candle.Volume = FastjsonGetUDec128(arr[5], 8)
+    candle.Open = FastjsonGetUDec128(arr[1], 12)
+    candle.Close = FastjsonGetUDec128(arr[2], 12)
+    candle.High = FastjsonGetUDec128(arr[3], 12)
+    candle.Low = FastjsonGetUDec128(arr[4], 12)
+    candle.Volume = FastjsonGetUDec128(arr[5], 12)
 }
 
 func (drv *BitfinexPublic) GetCandles(currency string, period uint32,

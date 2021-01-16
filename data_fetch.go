@@ -114,21 +114,23 @@ func (df *DataFetcher) GetUSDPrice() godec128.UDec128 {
     }
     
     t := time.Now().Unix()
-    if t - atomic.LoadInt64(&df.rtLastUpdate) >= maxRtPeriodUpdate &&
-        t - atomic.LoadInt64(&df.marketPriceLastUpdate) >= maxPeriodUpdate {
+    mpObj := df.marketPrice.Load()
+    if mpObj==nil || (t - atomic.LoadInt64(&df.rtLastUpdate) >= maxRtPeriodUpdate &&
+        t - atomic.LoadInt64(&df.marketPriceLastUpdate) >= maxPeriodUpdate) {
         // get from HTTP
         mp := df.public.GetMarketPrice(usdMarkets[df.currency].Name)
         df.marketPrice.Store(mp)
         atomic.StoreInt64(&df.marketPriceLastUpdate, t)
         return mp
     }
-    return df.marketPrice.Load().(godec128.UDec128)
+    return mpObj.(godec128.UDec128)
 }
 
 func (df *DataFetcher) GetOrderBook() *OrderBook {
     t := time.Now().Unix()
-    if t - atomic.LoadInt64(&df.rtLastUpdate) >= maxRtPeriodUpdate &&
-        t - atomic.LoadInt64(&df.orderBookLastUpdate) >= maxPeriodUpdate {
+    obObj := df.orderBook.Load()
+    if obObj==nil || (t - atomic.LoadInt64(&df.rtLastUpdate) >= maxRtPeriodUpdate &&
+        t - atomic.LoadInt64(&df.orderBookLastUpdate) >= maxPeriodUpdate) {
         // get from HTTP
         var ob OrderBook
         df.public.GetOrderBook(df.currency, &ob)
@@ -136,7 +138,7 @@ func (df *DataFetcher) GetOrderBook() *OrderBook {
         atomic.StoreInt64(&df.orderBookLastUpdate, t)
         return &ob
     }
-    return df.orderBook.Load().(*OrderBook)
+    return obObj.(*OrderBook)
 }
 
 func (df *DataFetcher) GetLastTrades() []Trade {

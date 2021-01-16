@@ -236,7 +236,6 @@ func (drv *BitfinexRTPublic) handleChannelMessage(chType wsChannelType,
                 // otherwise is single difference
                 var diff OrderBookEntryDiff
                 bitfinexGetOrderBookEntryDiffFromJson(arr[1], &diff)
-                fmt.Println("Diff:" , diff)
                 rtOBH := drv.getDiffOrderBookHandle(key)
                 if rtOBH!=nil && !rtOBH.pushDiff(seqNo, &diff) {
                     // if no then resubscribe channel
@@ -292,7 +291,7 @@ func (drv *BitfinexRTPublic) handleCommand(cmdBytes []byte) string {
             return ret
         case err := <-drv.funcErrCh:
             if err!=nil {
-                ErrorPanic("Bittrex function error: ", err)
+                ErrorPanic("Bitfinex function error: ", err)
             }
     }
     return ""
