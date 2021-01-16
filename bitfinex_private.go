@@ -26,7 +26,6 @@ import (
     "crypto/hmac"
     "crypto/sha512"
     "encoding/hex"
-    "fmt"
     "strconv"
     "time"
     "github.com/matszpk/godec128"
@@ -45,6 +44,9 @@ var (
     bitfinexApiFundingCredits = []byte("v2/auth/r/funding/credits/f")
     bitfinexApiFundingTrades = []byte("v2/auth/r/funding/trades/f")
     bitfinexApiSubmit = []byte("v2/auth/w/funding/offer/submit")
+    bitfinexApiCancel = []byte("v2/auth/w/funding/offer/cancel")
+    bitfinexApiOrders = []byte("v2/auth/r/funding/offers/f")
+    bitfinexStrSUCCESS = []byte("SUCCESS")
 )
 
 type Loan struct {
@@ -64,6 +66,35 @@ type Loan struct {
 type Credit struct {
     Loan
     Market string
+}
+
+type OrderStatus uint8
+
+const (
+    OrderActive = iota
+    OrderExecuted
+    OrderPartiallyFilled
+    OrderCanceled
+)
+
+type Order struct {
+    Id uint64
+    Currency string
+    CreateTime time.Time
+    UpdateTime time.Time
+    Amount godec128.UDec128
+    AmountOrig godec128.UDec128
+    Status OrderStatus
+    Rate godec128.UDec128
+    Period uint32
+    Renew bool
+}
+
+
+type OpResult struct {
+    Order Order
+    Success bool
+    Message string
 }
 
 type BitfinexPrivate struct {
@@ -247,8 +278,43 @@ func (drv *BitfinexPrivate) GetFundingCreditsHistory(currency string,
     return credits
 }
 
-func (drv *BitfinexPrivate) SubmitBidOrder(currency string, amount,
-                                    rate godec128.UDec128, period uint32) {
+func bitfinexGetOrderFromJson(v *fastjson.Value, order *Order) {
+    arr := FastjsonGetArray(v)
+    if len(arr) < 20 {
+        panic("Wrong json body")
+    }
+    *order = Order{}
+    order.Id = FastjsonGetUInt64(arr[0])
+    order.Currency = FastjsonGetString(arr[1])[1:]
+    order.CreateTime = FastjsonGetUnixTimeMilli(arr[2])
+    order.UpdateTime = FastjsonGetUnixTimeMilli(arr[3])
+    order.Amount, _ = FastjsonGetUDec128Signed(arr[4], 8)
+    order.AmountOrig, _ = FastjsonGetUDec128Signed(arr[5], 8)
+    status := FastjsonGetString(arr[10])
+    switch status {
+        case "ACTIVE":
+            order.Status = OrderActive
+        case "EXECUTED":
+            order.Status = OrderExecuted
+        case "PARTIALLY FILLED":
+            order.Status = OrderPartiallyFilled
+        case "CANCELED":
+            order.Status = OrderCanceled
+        default:
+            panic("Unknown order status")
+    }
+    order.Rate = FastjsonGetUDec128(arr[14], 8)
+    order.Period = FastjsonGetUInt32(arr[15])
+    if arr[19].Type() == fastjson.TypeNumber {
+        order.Renew = FastjsonGetInt(arr[19])!=0
+    } else {
+        order.Renew = FastjsonGetBool(arr[19])
+    }
+}
+
+func (drv *BitfinexPrivate) SubmitBidOrder(currency string,
+                            amount,rate godec128.UDec128, period uint32,
+                            or *OpResult) {
     body := make([]byte, 0, 80)
     body = append(body, `{"type":"LIMIT","symbol":"f`...)
     body = append(body, currency...)
@@ -259,12 +325,65 @@ func (drv *BitfinexPrivate) SubmitBidOrder(currency string, amount,
     body = append(body, `","period":`...)
     body = strconv.AppendUint(body, uint64(period), 10)
     body = append(body, `,"flags":0}`...)
-    fmt.Println("body:", string(body))
     
     var rh RequestHandle
     defer rh.Release()
     v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost,
                                     bitfinexApiSubmit, nil, body)
     if sc >= 400 { bitfinexPanic("Can't submit order", v, sc) }
-    fmt.Println("response:", v)
+    
+    // parse submit result
+    arr := FastjsonGetArray(v)
+    if len(arr) < 8 {
+        panic("Wrong json body")
+    }
+    
+    *or = OpResult{}
+    bitfinexGetOrderFromJson(arr[4], &or.Order)
+    or.Success = FastjsonCheckString(arr[6], bitfinexStrSUCCESS)
+    or.Message = FastjsonGetString(arr[7])
+}
+
+func (drv *BitfinexPrivate) CancelOrder(orderId uint64, or* OpResult) {
+    body := make([]byte, 0, 30)
+    body = append(body, `{"id":`...)
+    body = strconv.AppendUint(body, orderId, 10)
+    body = append(body, '}')
+    
+    var rh RequestHandle
+    defer rh.Release()
+    v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost,
+                                    bitfinexApiCancel, nil, body)
+    if sc >= 400 { bitfinexPanic("Can't cancel order", v, sc) }
+    
+    // parse submit result
+    arr := FastjsonGetArray(v)
+    if len(arr) < 8 {
+        panic("Wrong json body")
+    }
+    
+    *or = OpResult{}
+    bitfinexGetOrderFromJson(arr[4], &or.Order)
+    or.Success = FastjsonCheckString(arr[6], bitfinexStrSUCCESS)
+    or.Message = FastjsonGetString(arr[7])
+}
+
+func (drv *BitfinexPrivate) GetActiveOrders(currency string) []Order {
+    apiUrl := make([]byte, 0, 60)
+    apiUrl = append(apiUrl, bitfinexApiOrders...)
+    apiUrl = append(apiUrl, currency...)
+    
+    var rh RequestHandle
+    defer rh.Release()
+    v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost, apiUrl, nil,
+                                    bitfinexStrEmptyJson)
+    if sc >= 400 { bitfinexPanic("Can't get orders", v, sc) }
+    
+    arr := FastjsonGetArray(v)
+    ordersLen := len(arr)
+    orders := make([]Order, ordersLen)
+    for i, v := range arr {
+        bitfinexGetOrderFromJson(v, &orders[i])
+    }
+    return orders
 }
