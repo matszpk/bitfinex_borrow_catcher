@@ -38,7 +38,6 @@ var (
     bitfinexStrEvent = []byte("event")
     bitfinexStrChanId = []byte("chanId")
     bitfinexStrMsg = []byte("msg")
-    bitfinexStrWSConfig = []byte(`{"event":"conf","flags":65536}`)
 )
 
 type BitfinexRTPublic struct {
@@ -75,32 +74,11 @@ func (drv *BitfinexRTPublic) wsDialParams() (string, http.Header)  {
 
 func (drv *BitfinexRTPublic) wsInitMessage() {
     // event info
-    msgType, msg, err := drv.conn.ReadMessage()
+    msgType, _, err := drv.conn.ReadMessage()
     if err!=nil {
         ErrorPanic("Can't read info message", err)
     }
     if msgType!=websocket.TextMessage{ panic("Message type is not CodeText") }
-    
-    // set websocket configuration - add sequence number
-    drv.conn.WriteMessage(websocket.TextMessage, bitfinexStrWSConfig)
-    msgType, msg, err = drv.conn.ReadMessage()
-    if err!=nil {
-        ErrorPanic("Can't read config response message", err)
-    }
-    if msgType!=websocket.TextMessage{ panic("Message type is not CodeText") }
-    jp := JsonParserPool.Get()
-    defer JsonParserPool.Put(jp)
-    msgv, err := jp.ParseBytes(msg)
-    // check response
-    if err!=nil {
-        ErrorPanic("Can't parse setconfig response", err)
-    }
-    msgo := FastjsonGetObjectRequired(msgv)
-    statusv := msgo.Get("status")
-    if statusv==nil { panic("Wrong response after configuration") }
-    if FastjsonGetString(statusv)!="OK" {
-        panic("Wrong response after configuration")
-    }
 }
 
 func (drv *BitfinexRTPublic) wsLateInit() {
@@ -217,7 +195,7 @@ func (drv *BitfinexRTPublic) handleChannelMessage(chType wsChannelType,
             }
         }
         case wsDiffOrderBook: {
-            if len(arr) < 3 {
+            if len(arr) < 2 {
                 drv.sendErr(drv.errCh, errors.New("Wrong orderbook message"))
                 return
             }
