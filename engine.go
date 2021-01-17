@@ -99,7 +99,7 @@ func configFromJson(v *fastjson.Value, config *Config) {
     })
 }
 
-func LoadConfig(filename string, config *Config) {
+func (config *Config) Load(filename string) {
     f, err := os.Open(filename)
     if err!=nil {
         ErrorPanic("Can't open config file", err)
