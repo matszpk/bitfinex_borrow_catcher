@@ -31,6 +31,8 @@ import (
     "github.com/valyala/fastjson"
 )
 
+const engCheckStatusPeriod = time.Second*30
+
 var (
     configStrCurrency = []byte("currency")
     configStrTotalBorrowed = []byte("totalBorrowed")
@@ -119,16 +121,31 @@ func (config *Config) Load(filename string) {
 }
 
 type Engine struct {
+    stopCh chan struct{}
     config *Config
     df *DataFetcher
 }
 
 func NewEngine(config *Config, df *DataFetcher) *Engine {
-    return &Engine{ config: config, df: df }
+    return &Engine{ stopCh: make(chan struct{}), config: config, df: df }
 }
 
 func (eng *Engine) Start() {
 }
 
 func (eng *Engine) Stop() {
+}
+
+func (eng *Engine) mainRoutine() {
+    ticker := time.NewTicker(engCheckStatusPeriod)
+    defer ticker.Stop()
+    
+    stopped := false
+    for !stopped {
+        select {
+            case <- ticker.C:
+            case <- eng.stopCh:
+                stopped = true
+        }
+    }
 }
