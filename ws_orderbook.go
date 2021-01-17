@@ -194,7 +194,7 @@ func (stmp *OrderBook) applyDiff(sdest *OrderBook, diff *OrderBookEntryDiff) {
         if !toDelete {
             for i<j {
                 h := (i+j)>>1
-                if diff.Obe.Rate.Cmp(ett[h].Rate) < 0 {
+                if diff.Obe.Cmp(&ett[h]) < 0 {
                     i = h+1
                 } else {
                     j = h
@@ -210,7 +210,7 @@ func (stmp *OrderBook) applyDiff(sdest *OrderBook, diff *OrderBookEntryDiff) {
         
         if i < stmpBidLen {
             sdest.Bid = append(sdest.Bid, ett[:i]...)
-            r := diff.Obe.Rate.Cmp(ett[i].Rate)
+            r := diff.Obe.Cmp(&ett[i])
             if !toDelete {
                 sdest.Bid = append(sdest.Bid, diff.Obe)
             }
@@ -247,7 +247,7 @@ func (stmp *OrderBook) applyDiff(sdest *OrderBook, diff *OrderBookEntryDiff) {
         if !toDelete {
             for i<j {
                 h := (i+j)>>1
-                if diff.Obe.Rate.Cmp(ett[h].Rate) > 0 {
+                if diff.Obe.Cmp(&ett[h]) > 0 {
                     i = h+1
                 } else {
                     j = h
@@ -263,7 +263,7 @@ func (stmp *OrderBook) applyDiff(sdest *OrderBook, diff *OrderBookEntryDiff) {
         
         if i < stmpAskLen {
             sdest.Ask = append(sdest.Ask, ett[:i]...)
-            r := diff.Obe.Rate.Cmp(ett[i].Rate)
+            r := diff.Obe.Cmp(&ett[i])
             if !toDelete {
                 sdest.Ask = append(sdest.Ask, diff.Obe)
             }

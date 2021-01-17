@@ -24,6 +24,7 @@ package main
 
 import (
     "fmt"
+    "sort"
     "strconv"
     "strings"
     "time"
@@ -69,6 +70,49 @@ type OrderBookEntry struct {
     Period uint32
     Amount godec128.UDec128
     Rate godec128.UDec128
+}
+
+func (obe *OrderBookEntry) Cmp(obe2 *OrderBookEntry) int {
+    r := obe.Rate.Cmp(obe2.Rate)
+    if r!=0 { return r }
+    if obe.Id < obe2.Id {
+        return -1
+    } else if obe.Id > obe2.Id {
+        return 1
+    }
+    return 0
+}
+
+type OrderBookEntrySorter []OrderBookEntry
+
+func (s OrderBookEntrySorter) Len() int {
+    return len(s)
+}
+
+func (s OrderBookEntrySorter) Less(i, j int) bool {
+    return s[i].Cmp(&s[j]) < 0
+}
+
+func (s OrderBookEntrySorter) Swap(i, j int) {
+    t := s[i]
+    s[i] = s[j]
+    s[j] = t
+}
+
+type OrderBookEntryRevSorter []OrderBookEntry
+
+func (s OrderBookEntryRevSorter) Len() int {
+    return len(s)
+}
+
+func (s OrderBookEntryRevSorter) Less(i, j int) bool {
+    return s[i].Cmp(&s[j]) > 0
+}
+
+func (s OrderBookEntryRevSorter) Swap(i, j int) {
+    t := s[i]
+    s[i] = s[j]
+    s[j] = t
 }
 
 type OrderBook struct {
@@ -256,6 +300,8 @@ func bitfinexGetOrderBookFromJson(v *fastjson.Value, ob *OrderBook) {
             ob.Ask = append(ob.Ask, obe)
         }
     }
+    sort.Sort(OrderBookEntryRevSorter(ob.Bid))
+    sort.Sort(OrderBookEntrySorter(ob.Ask))
 }
 
 func (drv *BitfinexPublic) GetOrderBook(currency string, ob *OrderBook) {
