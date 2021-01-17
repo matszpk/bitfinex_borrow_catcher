@@ -26,7 +26,7 @@ import (
     "fmt"
     "time"
     "github.com/chzyer/readline"
-    //"github.com/matszpk/godec128"
+    "github.com/matszpk/godec128"
 )
 
 func Authenticate() ([]byte, []byte) {
@@ -59,37 +59,36 @@ func main() {
     fmt.Println(res)*/
     /*bp := NewBitfinexPublic()
     fmt.Println("BTCUSD", bp.GetMarketPrice("ADAUSD").Format(8, false))*/
-    bprt := NewBitfinexRTPublic()
+    /*bprt := NewBitfinexRTPublic()
     bprt.Start()
     defer bprt.Stop()
-    bprt.SubscribeOrderBook("USD", func(ob *OrderBook) {
-        fmt.Println("OBBid:", len(ob.Bid), ob.Bid)
-        fmt.Println("OBAsk:", len(ob.Ask), ob.Ask)
+    bprt.SubscribeTrades("USD", func(t *Trade) {
+        fmt.Println(*t)
     })
-    time.Sleep(time.Minute*10)
-    /*bp := NewBitfinexPublic()
+    time.Sleep(time.Minute*10)*/
+    bp := NewBitfinexPublic()
     bprt := NewBitfinexRTPublic()
     bprt.Start()
     defer bprt.Stop()
-    df := NewDataFetcher(bp, bprt, "LTC")
+    df := NewDataFetcher(bp, bprt, "USD")
     df.SetUSDPriceHandler(func(mp godec128.UDec128) {
         fmt.Println("MyPrice:", mp.Format(8, false))
     })
     df.SetOrderBookHandler(func(ob *OrderBook) {
-        fmt.Println("MyOB:", *ob)
+        fmt.Println("MyOB:", len(ob.Bid), len(ob.Ask))
     })
     df.SetLastTradeHandler(func(tr *Trade) {
         fmt.Println("MyLastTrade:", *tr)
     })
     df.Start()
     defer df.Stop()
-    for i:=0; i < 5; i++ {
-        fmt.Println("LTC Status:")
-        fmt.Println("LTC LTC Price:", df.GetUSDPrice().Format(8, false))
+    for i:=0; i < 500; i++ {
+        fmt.Println("USD Status:")
+        fmt.Println("USD USD Price:", df.GetUSDPrice().Format(8, false))
         ob := df.GetOrderBook()
-        fmt.Println("LTC Funding Bid:", ob.Bid)
-        fmt.Println("LTC Funding Ask:", ob.Ask)
-        fmt.Println("LTC Funding Trade:", *df.GetLastTrade())
+        fmt.Println("USD Funding Bid:", len(ob.Bid))
+        fmt.Println("USD Funding Ask:", len(ob.Ask))
+        fmt.Println("USD Funding Trade:", *df.GetLastTrade())
         time.Sleep(5*time.Second)
-    }*/
+    }
 }
