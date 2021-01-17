@@ -141,7 +141,7 @@ func (drv *websocketDriver) start() {
     drv.funcRetCh = make(chan string, 2)
     drv.funcErrCh = make(chan error, 2)
     if drv.lateInit!=nil { drv.lateInit() }
-    drv.errorHandler = dummyErrorHandlerPack
+    drv.errorHandler.Store(dummyErrorHandlerPack)
     
     drv.errCh = make(chan error, 2)
     drv.channelsOpened = 1

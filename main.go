@@ -85,7 +85,7 @@ func main() {
     })
     df.Start()
     defer df.Stop()
-    for i:=0; i < 500; i++ {
+    for i:=0; i < 1000; i++ {
         fmt.Println("LTC Status:")
         fmt.Println("LTC LTC Price:", df.GetUSDPrice().Format(8, false))
         ob := df.GetOrderBook()
