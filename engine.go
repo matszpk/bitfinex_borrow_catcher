@@ -99,6 +99,10 @@ func configFromJson(v *fastjson.Value, config *Config) {
             mask |= 128
         }
     })
+    // fix rate from percent to (0-1)
+    config.TypicalMaxRate = config.TypicalMaxRate.Div64(100)
+    config.UnluckyMaxRate = config.UnluckyMaxRate.Div64(100)
+    config.PreferredRate = config.PreferredRate.Div64(100)
 }
 
 func (config *Config) Load(filename string) {
