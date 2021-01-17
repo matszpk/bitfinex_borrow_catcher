@@ -296,3 +296,15 @@ func FastjsonGetUnixTimeMilli(vx *fastjson.Value) time.Time {
     }
     panic("Wrong json body: no unix time")
 }
+
+func FastjsonGetDuration(vx *fastjson.Value) time.Duration {
+    if vx.Type()==fastjson.TypeNull { return 0 }
+    if s, err := vx.StringBytes(); err==nil {
+        if d, err := time.ParseDuration(string(s)); err!=nil {
+            panic("Wrong json body: no time duration field")
+        } else {
+            return d
+        }
+    }
+    panic("Wrong json body: no time duration field")
+}
