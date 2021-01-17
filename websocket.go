@@ -314,7 +314,7 @@ func (drv *websocketDriver) handleMessages() {
                 if msg.code != websocket.PongMessage &&
                     (len(msg.msg)!=2 || msg.msg[0]!='{' || msg.msg[1]!='}') {
                     // this is not a keep-alive message, process
-                    go drv.handleMessage(msg.msg)
+                    drv.handleMessage(msg.msg)
                 }
             case err := <-drv.errCh: {
                 Logger.Error("websocket:", err)

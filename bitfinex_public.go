@@ -122,10 +122,10 @@ type OrderBook struct {
 
 func (ob *OrderBook) copyFrom(src *OrderBook) {
     blen, alen := len(src.Bid), len(src.Ask)
-    ob.Bid = make([]OrderBookEntry, blen)
-    ob.Ask = make([]OrderBookEntry, alen)
-    copy(ob.Bid, src.Bid[:blen])
-    copy(ob.Ask, src.Ask[:alen])
+    ob.Bid = ob.Bid[:0]
+    ob.Ask = ob.Ask[:0]
+    ob.Bid = append(ob.Bid, src.Bid[:blen]...)
+    ob.Ask = append(ob.Ask, src.Ask[:alen]...)
 }
 
 // Candle structure

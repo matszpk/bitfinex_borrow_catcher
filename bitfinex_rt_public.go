@@ -201,7 +201,7 @@ func (drv *BitfinexRTPublic) handleChannelMessage(chType wsChannelType,
                 drv.sendErr(drv.errCh, errors.New("Wrong ticker message"))
                 return
             }
-            drv.callMarketPriceHandler(key, bitfinexGetMarketPriceFromJson(arr[1]))
+            go drv.callMarketPriceHandler(key, bitfinexGetMarketPriceFromJson(arr[1]))
         }
         case wsTrades: {
             if len(arr) < 3 {
@@ -213,7 +213,7 @@ func (drv *BitfinexRTPublic) handleChannelMessage(chType wsChannelType,
                     arr[2].GetArray()[0].Type()!=fastjson.TypeArray {
                 var trade Trade
                 bitfinexGetTradeFromJson(arr[2], &trade)
-                drv.callTradeHandler(key, &trade)
+                go drv.callTradeHandler(key, &trade)
             }
         }
         case wsDiffOrderBook: {
@@ -221,7 +221,6 @@ func (drv *BitfinexRTPublic) handleChannelMessage(chType wsChannelType,
                 drv.sendErr(drv.errCh, errors.New("Wrong orderbook message"))
                 return
             }
-            seqNo := FastjsonGetUInt64(arr[2])
             
             if arr[1].Type()==fastjson.TypeArray &&
                     arr[1].GetArray()[0].Type()==fastjson.TypeArray {
@@ -229,7 +228,7 @@ func (drv *BitfinexRTPublic) handleChannelMessage(chType wsChannelType,
                 var ob OrderBook
                 bitfinexGetOrderBookFromJson(arr[1], &ob)
                 rtOBH := drv.getDiffOrderBookHandle(key)
-                rtOBH.pushInitial(seqNo, &ob)
+                rtOBH.pushInitial(&ob)
                 // unmark that is orderbook is broken
                 drv.wsOrderBookBrokenMap.Delete(key)
             } else {
@@ -237,14 +236,8 @@ func (drv *BitfinexRTPublic) handleChannelMessage(chType wsChannelType,
                 var diff OrderBookEntryDiff
                 bitfinexGetOrderBookEntryDiffFromJson(arr[1], &diff)
                 rtOBH := drv.getDiffOrderBookHandle(key)
-                if rtOBH!=nil && !rtOBH.pushDiff(seqNo, &diff) {
-                    // if no then resubscribe channel
-                    // mark that is orderbook is broken
-                    broken, ok := drv.wsOrderBookBrokenMap.LoadOrStore(key, true)
-                    if !ok || !broken.(bool) {
-                        drv.resubscribeOrderBook(key)
-                        drv.wsOrderBookBrokenMap.Store(key, true)
-                    }
+                if rtOBH!=nil {
+                    rtOBH.pushDiff(&diff)
                 }
             }
         }

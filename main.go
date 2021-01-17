@@ -62,8 +62,11 @@ func main() {
     /*bprt := NewBitfinexRTPublic()
     bprt.Start()
     defer bprt.Stop()
-    bprt.SubscribeTrades("USD", func(t *Trade) {
-        fmt.Println(*t)
+    bprt.SubscribeOrderBook("USD", func(ob *OrderBook) {
+        fmt.Println("MyOB:", len(ob.Bid), len(ob.Ask))
+    })
+    bprt.SubscribeTrades("USD", func(tr *Trade) {
+        fmt.Println("MyTrade:", *tr)
     })
     time.Sleep(time.Minute*10)*/
     bp := NewBitfinexPublic()
@@ -86,8 +89,8 @@ func main() {
         fmt.Println("USD Status:")
         fmt.Println("USD USD Price:", df.GetUSDPrice().Format(8, false))
         ob := df.GetOrderBook()
-        fmt.Println("USD Funding Bid:", len(ob.Bid))
-        fmt.Println("USD Funding Ask:", len(ob.Ask))
+        fmt.Println("USD Funding Bid:", ob.Bid)
+        fmt.Println("USD Funding Ask:", ob.Ask)
         fmt.Println("USD Funding Trade:", *df.GetLastTrade())
         time.Sleep(5*time.Second)
     }
