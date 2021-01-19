@@ -148,7 +148,7 @@ func bitfinexGetLoanFromJson(v *fastjson.Value, loan *Loan) {
     loan.UpdateTime = FastjsonGetUnixTimeMilli(arr[4])
     loan.Amount = FastjsonGetUDec128(arr[5], 8)
     loan.Status = FastjsonGetString(arr[7])
-    loan.Rate = FastjsonGetUDec128(arr[11], 8)
+    loan.Rate = FastjsonGetUDec128(arr[11], 12)
     loan.Period = FastjsonGetUInt32(arr[12])
     loan.Renew = FastjsonGetUInt32(arr[18])!=0
     loan.NoClose = FastjsonGetUInt32(arr[20])!=0
@@ -219,7 +219,7 @@ func bitfinexGetCreditFromJson(v *fastjson.Value, credit *Credit) {
     credit.UpdateTime = FastjsonGetUnixTimeMilli(arr[4])
     credit.Amount = FastjsonGetUDec128(arr[5], 8)
     credit.Status = FastjsonGetString(arr[7])
-    credit.Rate = FastjsonGetUDec128(arr[11], 8)
+    credit.Rate = FastjsonGetUDec128(arr[11], 12)
     credit.Period = FastjsonGetUInt32(arr[12])
     credit.Renew = FastjsonGetUInt32(arr[18])!=0
     credit.NoClose = FastjsonGetUInt32(arr[20])!=0
@@ -303,7 +303,7 @@ func bitfinexGetOrderFromJson(v *fastjson.Value, order *Order) {
         default:
             panic("Unknown order status")
     }
-    order.Rate = FastjsonGetUDec128(arr[14], 8)
+    order.Rate = FastjsonGetUDec128(arr[14], 12)
     order.Period = FastjsonGetUInt32(arr[15])
     if arr[19].Type() == fastjson.TypeNumber {
         order.Renew = FastjsonGetInt(arr[19])!=0
