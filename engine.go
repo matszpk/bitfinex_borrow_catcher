@@ -26,6 +26,7 @@ import (
     "bytes"
     "io/ioutil"
     "os"
+    "sync"
     "time"
     "github.com/matszpk/godec128"
     "github.com/valyala/fastjson"
@@ -145,8 +146,8 @@ type EngineStats struct {
 /* borrow queue */
 
 type BorrowQueueElem struct {
-    expireTime time.Time
-    toBorrow godec128.UDec128
+    ExpireTime time.Time
+    ToBorrow godec128.UDec128
 }
 
 type BorrowQueue struct {
@@ -160,6 +161,22 @@ func (bq *BorrowQueue) Value(i int) BorrowQueueElem {
         panic("Index overflow")
     }
     return bq.array[(bq.startPos + i) % len(bq.array)]
+}
+
+// get minimal length for required amount and total to borrow
+func (bq *BorrowQueue) MinLengthToOffer(
+            required godec128.UDec128) (length int, total godec128.UDec128) {
+    i := 0
+    total = godec128.UDec128{}
+    for i=0; i < bq.length; i++ {
+        if total.Cmp(required) > 0 {
+            break
+        }
+        e := bq.array[(bq.startPos + i) % len(bq.array)]
+        total = total.Add(e.ToBorrow)
+    }
+    length = i
+    return
 }
 
 func (bq *BorrowQueue) newArray() {
@@ -210,6 +227,7 @@ type Engine struct {
     autoFetchShiftTimeSet bool
     autoFetchShiftTime time.Duration
     stats EngineStats
+    mutex sync.Mutex
     borrowQueue BorrowQueue
 }
 
