@@ -165,7 +165,7 @@ func (bq *BorrowQueue) Value(i int) BorrowQueueElem {
 func (bq *BorrowQueue) newArray() {
     // create new longer array
     alen := len(bq.array)
-    newArray := make([]BorrowQueueElem, bq.length*2)
+    newArray := make([]BorrowQueueElem, (bq.length+1)*2)
     for i := 0; i < bq.length; i++ {
         newArray[i] = bq.array[(bq.startPos +i) % alen]
     }
@@ -210,8 +210,7 @@ type Engine struct {
     autoFetchShiftTimeSet bool
     autoFetchShiftTime time.Duration
     stats EngineStats
-    
-    borrowQueue []BorrowQueueElem
+    borrowQueue BorrowQueue
 }
 
 func NewEngine(config *Config, df *DataFetcher, bpriv *BitfinexPrivate) *Engine {
