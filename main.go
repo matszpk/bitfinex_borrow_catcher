@@ -24,9 +24,9 @@ package main
 
 import (
     "fmt"
-    "time"
+    //"time"
     "github.com/chzyer/readline"
-    "github.com/matszpk/godec128"
+    //"github.com/matszpk/godec128"
 )
 
 func Authenticate() ([]byte, []byte) {
@@ -42,21 +42,11 @@ func Authenticate() ([]byte, []byte) {
 }
 
 func main() {
-    /*apiKey, secretKey := Authenticate()
+    apiKey, secretKey := Authenticate()
     bpriv := NewBitfinexPrivate(apiKey, secretKey)
-    var res OpResult
-    bpriv.SubmitBidOrder("USD", godec128.UDec128{51*100000000,0},
-                      godec128.UDec128{1233,0}, 2, &res)
-    fmt.Println(res)
-    time.Sleep(5*time.Second)
-    fmt.Println("Orders:")
-    for _, order := range bpriv.GetActiveOrders("USD") {
-        fmt.Println(order)
+    for _, credit := range bpriv.GetCredits("BTC") {
+        fmt.Println(credit)
     }
-    time.Sleep(25*time.Second)
-    fmt.Println("Canceling order:", res.Order.Id)
-    bpriv.CancelOrder(res.Order.Id, &res)
-    fmt.Println(res)*/
     /*bp := NewBitfinexPublic()
     fmt.Println("BTCUSD", bp.GetMarketPrice("ADAUSD").Format(8, false))*/
     /*bprt := NewBitfinexRTPublic()
@@ -69,7 +59,7 @@ func main() {
         fmt.Println("MyTrade:", *tr)
     })
     time.Sleep(time.Minute*10)*/
-    bp := NewBitfinexPublic()
+    /*bp := NewBitfinexPublic()
     bprt := NewBitfinexRTPublic()
     bprt.Start()
     defer bprt.Stop()
@@ -93,5 +83,5 @@ func main() {
         fmt.Println("LTC Funding Ask:", ob.Ask)
         fmt.Println("LTC Funding Trade:", *df.GetLastTrade())
         time.Sleep(5*time.Second)
-    }
+    }*/
 }

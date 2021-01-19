@@ -102,6 +102,10 @@ func NewDataFetcher(public *BitfinexPublic, rtPublic *BitfinexRTPublic,
     return df
 }
 
+func (df *DataFetcher) GetCurrency() string {
+    return df.currency
+}
+
 func (df *DataFetcher) SetUSDPriceHandler(mh MarketPriceHandler) {
     df.marketPriceHandlerU = mh
 }

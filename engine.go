@@ -252,6 +252,12 @@ func (eng *Engine) checkOrderBook(ob *OrderBook) {
     }
 }
 
+func (eng *Engine) pushPendingBorrows() {
+    eng.mutex.Lock()
+    defer eng.mutex.Unlock()
+    //credits := eng.bpriv.GetCredits(eng.DataFetch.GetCurrency())
+}
+
 func (eng *Engine) mainRoutine() {
     ticker := time.NewTicker(engCheckStatusPeriod)
     defer ticker.Stop()
