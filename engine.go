@@ -33,6 +33,8 @@ import (
 
 const engCheckStatusPeriod = time.Second*30
 
+/* Config stuff */
+
 var (
     configStrCurrency = []byte("currency")
     configStrTotalBorrowed = []byte("totalBorrowed")
@@ -124,11 +126,92 @@ func (config *Config) Load(filename string) {
     }
 }
 
+/* Engine stats */
+
+type LastStatsPeriod struct {
+    t time.Duration
+    Min godec128.UDec128
+    Avg godec128.UDec128
+    Max godec128.UDec128
+}
+
+type EngineStats struct {
+    candle []Candle
+    min10Stats LastStatsPeriod
+    min30Stats LastStatsPeriod
+    hourStats LastStatsPeriod
+}
+
+/* borrow queue */
+
+type BorrowQueueElem struct {
+    expireTime time.Time
+    toBorrow godec128.UDec128
+}
+
+type BorrowQueue struct {
+    startPos int
+    length int
+    array []BorrowQueueElem
+}
+
+func (bq *BorrowQueue) Value(i int) BorrowQueueElem {
+    if i >= bq.length {
+        panic("Index overflow")
+    }
+    return bq.array[(bq.startPos + i) % len(bq.array)]
+}
+
+func (bq *BorrowQueue) newArray() {
+    // create new longer array
+    alen := len(bq.array)
+    newArray := make([]BorrowQueueElem, bq.length*2)
+    for i := 0; i < bq.length; i++ {
+        newArray[i] = bq.array[(bq.startPos +i) % alen]
+    }
+    bq.array = newArray
+    bq.startPos = 0
+}
+
+func (bq *BorrowQueue) Push(e BorrowQueueElem) {
+    alen := len(bq.array)
+    if bq.length >= alen {
+        bq.newArray()
+    }
+    bq.array[(bq.startPos + bq.length) % alen] = e
+    bq.length++
+}
+
+func (bq *BorrowQueue) Pop() BorrowQueueElem {
+    if bq.length == 0 {
+        panic("No elements in queue")
+    }
+    elem := bq.array[bq.startPos]
+    bq.startPos++
+    alen := len(bq.array)
+    if bq.startPos >= alen {
+        bq.startPos = 0
+    }
+    bq.length--
+    if bq.length*4 < alen {
+        // shrink array if too many free cells
+        bq.newArray()
+    }
+    return elem
+}
+
+/* Engine stuff */
+
 type Engine struct {
     stopCh chan struct{}
     config *Config
     df *DataFetcher
     bpriv *BitfinexPrivate
+    autoFetchShiftTimeSet bool
+    autoFetchShiftTime time.Duration
+    stats EngineStats
+    
+    borrowQueue []BorrowQueueElem
 }
 
 func NewEngine(config *Config, df *DataFetcher, bpriv *BitfinexPrivate) *Engine {
