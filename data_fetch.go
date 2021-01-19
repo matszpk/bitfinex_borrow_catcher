@@ -126,6 +126,7 @@ func (df *DataFetcher) Stop() {
 }
 
 func (df *DataFetcher) update() {
+    // update price, orderbook and last trade if websocket fails
     t := time.Now().Unix()
     needUpdate := t - atomic.LoadInt64(&df.rtMarketPriceLastUpdate) >= maxRtPeriodUpdate
     
@@ -185,6 +186,7 @@ func (df *DataFetcher) updater() {
     
     df.safeUpdate()
     stopped := false
+    // periodically update price, orderbook and last trade if websocket fails
     for !stopped {
         select {
             case <- ticker.C:

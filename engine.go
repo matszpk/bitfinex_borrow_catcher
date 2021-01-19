@@ -128,16 +128,28 @@ type Engine struct {
     stopCh chan struct{}
     config *Config
     df *DataFetcher
+    bpriv *BitfinexPrivate
 }
 
-func NewEngine(config *Config, df *DataFetcher) *Engine {
-    return &Engine{ stopCh: make(chan struct{}), config: config, df: df }
+func NewEngine(config *Config, df *DataFetcher, bpriv *BitfinexPrivate) *Engine {
+    return &Engine{ stopCh: make(chan struct{}), config: config,
+                df: df, bpriv: bpriv }
 }
 
 func (eng *Engine) Start() {
+    eng.df.SetOrderBookHandler(eng.checkOrderBook)
+    go eng.mainRoutine()
 }
 
 func (eng *Engine) Stop() {
+    eng.stopCh <- struct{}{}
+    eng.df.SetOrderBookHandler(nil)
+}
+
+func (eng *Engine) checkOrderBook(ob *OrderBook) {
+    if len(ob.Ask)==0 {
+        return // no offers
+    }
 }
 
 func (eng *Engine) mainRoutine() {
