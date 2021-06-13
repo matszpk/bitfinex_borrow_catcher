@@ -39,7 +39,7 @@ const engCheckStatusPeriod = time.Second*30
 var (
     configStrCurrency = []byte("currency")
     configStrTotalBorrowed = []byte("totalBorrowed")
-    configStrAutoLoanFetchPeriod = []byte("auotLoanFetchPeriod")
+    configStrAutoLoanFetchPeriod = []byte("autoLoanFetchPeriod")
     configStrStartBeforeExpire = []byte("startBeforeExpire")
     configStrTypicalMaxRate = []byte("typicalMaxRate")
     configStrUnluckyMaxRate = []byte("unluckyMaxRate")
