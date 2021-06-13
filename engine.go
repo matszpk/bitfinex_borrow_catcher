@@ -38,7 +38,6 @@ const engCheckStatusPeriod = time.Second*30
 
 var (
     configStrCurrency = []byte("currency")
-    configStrTotalBorrowed = []byte("totalBorrowed")
     configStrAutoLoanFetchPeriod = []byte("autoLoanFetchPeriod")
     configStrStartBeforeExpire = []byte("startBeforeExpire")
     configStrTypicalMaxRate = []byte("typicalMaxRate")
@@ -73,33 +72,29 @@ func configFromJson(v *fastjson.Value, config *Config) {
             config.Currency = FastjsonGetString(vx)
             mask |= 1
         }
-        if ((mask & 2) == 0 && bytes.Equal(key, configStrTotalBorrowed)) {
-            config.TotalBorrowed = FastjsonGetUDec64(vx, 8)
+        if ((mask & 2) == 0 && bytes.Equal(key, configStrAutoLoanFetchPeriod)) {
+            config.AutoLoanFetchPeriod = FastjsonGetDuration(vx)
             mask |= 2
         }
-        if ((mask & 4) == 0 && bytes.Equal(key, configStrAutoLoanFetchPeriod)) {
-            config.AutoLoanFetchPeriod = FastjsonGetDuration(vx)
+        if ((mask & 4) == 0 && bytes.Equal(key, configStrStartBeforeExpire)) {
+            config.StartBeforeExpire = FastjsonGetDuration(vx)
             mask |= 4
         }
-        if ((mask & 8) == 0 && bytes.Equal(key, configStrStartBeforeExpire)) {
-            config.StartBeforeExpire = FastjsonGetDuration(vx)
+        if ((mask & 8) == 0 && bytes.Equal(key, configStrTypicalMaxRate)) {
+            config.TypicalMaxRate = FastjsonGetUDec64(vx, 12)
             mask |= 8
         }
-        if ((mask & 16) == 0 && bytes.Equal(key, configStrTypicalMaxRate)) {
-            config.TypicalMaxRate = FastjsonGetUDec64(vx, 12)
+        if ((mask & 16) == 0 && bytes.Equal(key, configStrUnluckyMaxRate)) {
+            config.UnluckyMaxRate = FastjsonGetUDec64(vx, 12)
             mask |= 16
         }
-        if ((mask & 32) == 0 && bytes.Equal(key, configStrUnluckyMaxRate)) {
-            config.UnluckyMaxRate = FastjsonGetUDec64(vx, 12)
+        if ((mask & 32) == 0 && bytes.Equal(key, configStrPreferredRate)) {
+            config.PreferredRate = FastjsonGetUDec64(vx, 12)
             mask |= 32
         }
-        if ((mask & 64) == 0 && bytes.Equal(key, configStrPreferredRate)) {
-            config.PreferredRate = FastjsonGetUDec64(vx, 12)
-            mask |= 64
-        }
-        if ((mask & 128) == 0 && bytes.Equal(key, configStrMaxFundingPeriod)) {
+        if ((mask & 64) == 0 && bytes.Equal(key, configStrMaxFundingPeriod)) {
             config.MaxFundingPeriod = FastjsonGetUInt32(vx)
-            mask |= 128
+            mask |= 64
         }
     })
     // fix rate from percent to (0-1)
