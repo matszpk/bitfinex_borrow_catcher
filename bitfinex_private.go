@@ -200,9 +200,8 @@ func (drv *BitfinexPrivate) GetLoansHistory(currency string,
     loansLen := len(arr)
     loans := make([]Loan, loansLen)
     
-    llen := len(loans)
     for i, v := range arr {
-        bitfinexGetLoanFromJson(v, &loans[llen-i-1])
+        bitfinexGetLoanFromJson(v, &loans[loansLen-i-1])
     }
     return loans
 }
@@ -273,9 +272,8 @@ func (drv *BitfinexPrivate) GetCreditsHistory(currency string,
     creditsLen := len(arr)
     credits := make([]Credit, creditsLen)
     
-    clen := len(credits)
     for i, v := range arr {
-        bitfinexGetCreditFromJson(v, &credits[clen-i-1])
+        bitfinexGetCreditFromJson(v, &credits[creditsLen-i-1])
     }
     return credits
 }
