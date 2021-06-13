@@ -181,19 +181,19 @@ func (drv *BitfinexPrivate) GetLoansHistory(currency string,
     apiUrl = append(apiUrl, bitfinexApiFundingLoans...)
     apiUrl = append(apiUrl, currency...)
     apiUrl = append(apiUrl, "/hist"...)
-    query := make([]byte, 0, 40)
-    query = append(query, "?limit="...)
-    query = strconv.AppendUint(query, uint64(limit), 10)
+    body := make([]byte, 0, 40)
+    body = append(body, `{"limit":`...)
+    body = strconv.AppendUint(body, uint64(limit), 10)
     if !since.IsZero() {
         unixTime := since.Unix()*1000 + int64(since.Nanosecond()/1000000)
-        query = append(query, "&start="...)
-        query = strconv.AppendInt(query, unixTime, 10)
+        body = append(body, `,"start":`...)
+        body = strconv.AppendInt(body, unixTime, 10)
     }
+    body = append(body, '}')
     
     var rh RequestHandle
     defer rh.Release()
-    v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost, apiUrl, query,
-                                    bitfinexStrEmptyJson)
+    v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost, apiUrl, nil, body)
     if sc >= 400 { bitfinexPanic("Can't get funding loans history", v, sc) }
     
     arr := FastjsonGetArray(v)
@@ -254,19 +254,19 @@ func (drv *BitfinexPrivate) GetCreditsHistory(currency string,
     apiUrl = append(apiUrl, bitfinexApiFundingCredits...)
     apiUrl = append(apiUrl, currency...)
     apiUrl = append(apiUrl, "/hist"...)
-    query := make([]byte, 0, 40)
-    query = append(query, "?limit="...)
-    query = strconv.AppendUint(query, uint64(limit), 10)
+    body := make([]byte, 0, 40)
+    body = append(body, `{"limit":`...)
+    body = strconv.AppendUint(body, uint64(limit), 10)
     if !since.IsZero() {
         unixTime := since.Unix()*1000 + int64(since.Nanosecond()/1000000)
-        query = append(query, "&start="...)
-        query = strconv.AppendInt(query, unixTime, 10)
+        body = append(body, `,"start":`...)
+        body = strconv.AppendInt(body, unixTime, 10)
     }
+    body = append(body, '}')
     
     var rh RequestHandle
     defer rh.Release()
-    v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost, apiUrl, query,
-                                    bitfinexStrEmptyJson)
+    v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost, apiUrl, nil, body)
     if sc >= 400 { bitfinexPanic("Can't get funding credits history", v, sc) }
     
     arr := FastjsonGetArray(v)
