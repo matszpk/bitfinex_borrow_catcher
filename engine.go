@@ -168,11 +168,15 @@ func (bq *BorrowQueue) MinLengthToOffer(
             required godec64.UDec64) (length int, total godec64.UDec64) {
     i := 0
     total = 0
+    k := bq.startPos
+    arrLen := len(bq.array)
     for i=0; i < bq.length; i++ {
         if total > required {
             break
         }
-        e := bq.array[(bq.startPos + i) % len(bq.array)]
+        e := bq.array[k]
+        k++
+        if k >= arrLen { k = 0 }
         total += e.ToBorrow
     }
     length = i
@@ -183,8 +187,11 @@ func (bq *BorrowQueue) newArray() {
     // create new longer array
     alen := len(bq.array)
     newArray := make([]BorrowQueueElem, (bq.length+1)*2)
+    k := bq.startPos
     for i := 0; i < bq.length; i++ {
-        newArray[i] = bq.array[(bq.startPos +i) % alen]
+        newArray[i] = bq.array[k]
+        k++
+        if k >= alen { k = 0 }
     }
     bq.array = newArray
     bq.startPos = 0
