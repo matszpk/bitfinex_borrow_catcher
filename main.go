@@ -24,7 +24,7 @@ package main
 
 import (
     "fmt"
-    //"time"
+    "time"
     "github.com/chzyer/readline"
     //"github.com/matszpk/godec64"
 )
@@ -44,7 +44,7 @@ func Authenticate() ([]byte, []byte) {
 func main() {
     apiKey, secretKey := Authenticate()
     bpriv := NewBitfinexPrivate(apiKey, secretKey)
-    for _, credit := range bpriv.GetCredits("BTC") {
+    for _, credit := range bpriv.GetLoansHistory("UST", time.Time{}, 100) {
         fmt.Println(credit)
     }
     /*bp := NewBitfinexPublic()
