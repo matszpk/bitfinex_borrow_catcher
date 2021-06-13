@@ -64,7 +64,7 @@ type RequestHandle struct {
 }
 
 // handle http get with json. it returns json value and http status code.
-func (rh *RequestHandle) HandleHttpGetJson(httpClient fasthttp.HostClient,
+func (rh *RequestHandle) HandleHttpGetJson(httpClient *fasthttp.HostClient,
                 host, uri []byte, args *fasthttp.Args) (*fastjson.Value, int) {
     req := fasthttp.AcquireRequest()
     defer fasthttp.ReleaseRequest(req)
@@ -107,7 +107,7 @@ func (rh *RequestHandle) HandleHttpGetJson(httpClient fasthttp.HostClient,
 }
 
 // headers - array of string-bytes, even elements are keys, odd are value
-func (rh *RequestHandle) HandleHttpPostJson(httpClient fasthttp.HostClient,
+func (rh *RequestHandle) HandleHttpPostJson(httpClient *fasthttp.HostClient,
                 host, uri, query []byte, body []byte,
                 headers [][]byte) (*fastjson.Value, int) {
     req := fasthttp.AcquireRequest()

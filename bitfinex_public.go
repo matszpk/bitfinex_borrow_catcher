@@ -188,7 +188,7 @@ func bitfinexGetMarketsFromJson(v *fastjson.Value, market *Market) {
 func (drv *BitfinexPublic) GetMarkets() []Market {
     var rh RequestHandle
     defer rh.Release()
-    v, sc := rh.HandleHttpGetJson(drv.httpClient, bitfinexPubApiHost,
+    v, sc := rh.HandleHttpGetJson(&drv.httpClient, bitfinexPubApiHost,
                                   bitfinexApiMarkets, nil)
     if sc >= 400 { bitfinexPanic("Can't get markets", v, sc) }
     arr := FastjsonGetArray(v)
@@ -219,7 +219,7 @@ func (drv *BitfinexPublic) GetMarketPrice(market string) godec128.UDec128 {
     
     var rh RequestHandle
     defer rh.Release()
-    v, sc := rh.HandleHttpGetJson(drv.httpClient, bitfinexPubApiHost, apiUrl, nil)
+    v, sc := rh.HandleHttpGetJson(&drv.httpClient, bitfinexPubApiHost, apiUrl, nil)
     if sc >= 400 { bitfinexPanic("Can't get ticker", v, sc) }
     
     return bitfinexGetMarketPriceFromJson(v)
@@ -259,7 +259,7 @@ func (drv *BitfinexPublic) GetTrades(currency string,
     
     var rh RequestHandle
     defer rh.Release()
-    v, sc := rh.HandleHttpGetJson(drv.httpClient, bitfinexPubApiHost, apiUrl, nil)
+    v, sc := rh.HandleHttpGetJson(&drv.httpClient, bitfinexPubApiHost, apiUrl, nil)
     if sc >= 400 { bitfinexPanic("Can't get trades", v, sc) }
     arr := FastjsonGetArray(v)
     
@@ -312,7 +312,7 @@ func (drv *BitfinexPublic) GetOrderBook(currency string, ob *OrderBook) {
     
     var rh RequestHandle
     defer rh.Release()
-    v, sc := rh.HandleHttpGetJson(drv.httpClient, bitfinexPubApiHost, apiUrl, nil)
+    v, sc := rh.HandleHttpGetJson(&drv.httpClient, bitfinexPubApiHost, apiUrl, nil)
     if sc >= 400 { bitfinexPanic("Can't get orderbook", v, sc) }
     bitfinexGetOrderBookFromJson(v, ob)
 }
@@ -370,7 +370,7 @@ func (drv *BitfinexPublic) GetCandles(currency string, period uint32,
     
     var rh RequestHandle
     defer rh.Release()
-    v, sc := rh.HandleHttpGetJson(drv.httpClient, bitfinexPubApiHost, apiUrl, nil)
+    v, sc := rh.HandleHttpGetJson(&drv.httpClient, bitfinexPubApiHost, apiUrl, nil)
     if sc >= 400 { bitfinexPanic("Can't get candles", v, sc) }
     
     arr := FastjsonGetArray(v)

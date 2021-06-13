@@ -132,7 +132,7 @@ func (drv *BitfinexPrivate) handleHttpPostJson(rh *RequestHandle,
         bitfinexStrApiKey, drv.apiKey,
         bitfinexStrSignature, sumHex }
     
-    return rh.HandleHttpPostJson(drv.httpClient, host, uri, query, bodyStr, headers)
+    return rh.HandleHttpPostJson(&drv.httpClient, host, uri, query, bodyStr, headers)
 }
 
 func bitfinexGetLoanFromJson(v *fastjson.Value, loan *Loan) {
