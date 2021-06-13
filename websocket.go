@@ -31,11 +31,11 @@ import (
     "sync"
     "sync/atomic"
     "time"
-    "github.com/matszpk/godec128"
+    "github.com/matszpk/godec64"
     "github.com/gorilla/websocket"
 )
 
-type MarketPriceHandler func(godec128.UDec128)
+type MarketPriceHandler func(godec64.UDec64)
 type TradeHandler func(*Trade)
 type OrderBookHandler func(*OrderBook)
 
@@ -348,7 +348,7 @@ func (drv *websocketDriver) unsetMarketPriceHandler(market string) {
     drv.marketPriceHandlers.Delete(market)
 }
 
-func (drv *websocketDriver) callMarketPriceHandler(market string, mp godec128.UDec128) {
+func (drv *websocketDriver) callMarketPriceHandler(market string, mp godec64.UDec64) {
     h, ok := drv.marketPriceHandlers.Load(market)
     if ok { h.(MarketPriceHandler)(mp) }
 }

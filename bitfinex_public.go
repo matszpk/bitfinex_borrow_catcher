@@ -28,7 +28,7 @@ import (
     "strconv"
     "strings"
     "time"
-    "github.com/matszpk/godec128"
+    "github.com/matszpk/godec64"
     "github.com/valyala/fasthttp"
     "github.com/valyala/fastjson"
 )
@@ -60,21 +60,21 @@ type Trade struct {
     Id uint64
     TimeStamp time.Time
     Side Side
-    Amount godec128.UDec128
-    Rate godec128.UDec128
+    Amount godec64.UDec64
+    Rate godec64.UDec64
     Period uint32
 }
 
 type OrderBookEntry struct {
     Id uint64
     Period uint32
-    Amount godec128.UDec128
-    Rate godec128.UDec128
+    Amount godec64.UDec64
+    Rate godec64.UDec64
 }
 
 func (obe *OrderBookEntry) Cmp(obe2 *OrderBookEntry) int {
-    r := obe.Rate.Cmp(obe2.Rate)
-    if r!=0 { return r }
+    if obe.Rate < obe2.Rate { return -1
+    } else if obe.Rate > obe2.Rate { return 1 }
     if obe.Id < obe2.Id {
         return -1
     } else if obe.Id > obe2.Id {
@@ -132,9 +132,9 @@ func (ob *OrderBook) copyFrom(src *OrderBook) {
 type Candle struct {
     TimeStamp time.Time     /// timestamp
     // Open, Low, High, Close in rate
-    Open, High, Low, Close godec128.UDec128
+    Open, High, Low, Close godec64.UDec64
     // volume in currency
-    Volume godec128.UDec128
+    Volume godec64.UDec64
 }
 
 type BitfinexPublic struct {
@@ -204,15 +204,15 @@ func (drv *BitfinexPublic) GetMarkets() []Market {
     return markets
 }
 
-func bitfinexGetMarketPriceFromJson(v *fastjson.Value) godec128.UDec128 {
+func bitfinexGetMarketPriceFromJson(v *fastjson.Value) godec64.UDec64 {
     arr := FastjsonGetArray(v)
     if len(arr) < 7 {
         panic("Wrong json body")
     }
-    return FastjsonGetUDec128(arr[6], 8)
+    return FastjsonGetUDec64(arr[6], 8)
 }
 
-func (drv *BitfinexPublic) GetMarketPrice(market string) godec128.UDec128 {
+func (drv *BitfinexPublic) GetMarketPrice(market string) godec64.UDec64 {
     apiUrl := make([]byte, 0, 20)
     apiUrl = append(apiUrl, bitfinexApiTicker...)
     apiUrl = append(apiUrl, market...)
@@ -235,11 +235,11 @@ func bitfinexGetTradeFromJson(v *fastjson.Value, trade *Trade) {
     trade.TimeStamp = FastjsonGetUnixTimeMilli(arr[1])
     var neg bool
     trade.Side = SideOffer
-    trade.Amount, neg = FastjsonGetUDec128Signed(arr[2], 8)
+    trade.Amount, neg = FastjsonGetUDec64Signed(arr[2], 8)
     if neg {
         trade.Side = SideBid
     }
-    trade.Rate = FastjsonGetUDec128(arr[3], 12)
+    trade.Rate = FastjsonGetUDec64(arr[3], 12)
     trade.Period = FastjsonGetUInt32(arr[4])
 }
 
@@ -278,9 +278,9 @@ func bitfinexGetOrderBookEntryFromJson(v *fastjson.Value, obe *OrderBookEntry) b
     }
     obe.Id = FastjsonGetUInt64(arr[0])
     obe.Period = FastjsonGetUInt32(arr[1])
-    obe.Rate = FastjsonGetUDec128(arr[2], 12)
+    obe.Rate = FastjsonGetUDec64(arr[2], 12)
     var neg bool
-    obe.Amount, neg = FastjsonGetUDec128Signed(arr[3], 8)
+    obe.Amount, neg = FastjsonGetUDec64Signed(arr[3], 8)
     return neg
 }
 
@@ -344,11 +344,11 @@ func bitfinexGetCandleFromJson(v *fastjson.Value, candle *Candle) {
         panic("Wrong json body")
     }
     candle.TimeStamp = FastjsonGetUnixTimeMilli(arr[0])
-    candle.Open = FastjsonGetUDec128(arr[1], 12)
-    candle.Close = FastjsonGetUDec128(arr[2], 12)
-    candle.High = FastjsonGetUDec128(arr[3], 12)
-    candle.Low = FastjsonGetUDec128(arr[4], 12)
-    candle.Volume = FastjsonGetUDec128(arr[5], 12)
+    candle.Open = FastjsonGetUDec64(arr[1], 12)
+    candle.Close = FastjsonGetUDec64(arr[2], 12)
+    candle.High = FastjsonGetUDec64(arr[3], 12)
+    candle.Low = FastjsonGetUDec64(arr[4], 12)
+    candle.Volume = FastjsonGetUDec64(arr[5], 12)
 }
 
 func (drv *BitfinexPublic) GetCandles(currency string, period uint32,

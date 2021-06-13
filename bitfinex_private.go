@@ -28,7 +28,7 @@ import (
     "encoding/hex"
     "strconv"
     "time"
-    "github.com/matszpk/godec128"
+    "github.com/matszpk/godec64"
     "github.com/valyala/fasthttp"
     "github.com/valyala/fastjson"
 )
@@ -55,9 +55,9 @@ type Loan struct {
     Side int
     CreateTime time.Time
     UpdateTime time.Time
-    Amount godec128.UDec128
+    Amount godec64.UDec64
     Status string
-    Rate godec128.UDec128
+    Rate godec64.UDec64
     Period uint32
     Renew bool
     NoClose bool
@@ -82,10 +82,10 @@ type Order struct {
     Currency string
     CreateTime time.Time
     UpdateTime time.Time
-    Amount godec128.UDec128
-    AmountOrig godec128.UDec128
+    Amount godec64.UDec64
+    AmountOrig godec64.UDec64
     Status OrderStatus
-    Rate godec128.UDec128
+    Rate godec64.UDec64
     Period uint32
     Renew bool
 }
@@ -146,9 +146,9 @@ func bitfinexGetLoanFromJson(v *fastjson.Value, loan *Loan) {
     loan.Side = FastjsonGetInt(arr[2])
     loan.CreateTime = FastjsonGetUnixTimeMilli(arr[3])
     loan.UpdateTime = FastjsonGetUnixTimeMilli(arr[4])
-    loan.Amount = FastjsonGetUDec128(arr[5], 8)
+    loan.Amount = FastjsonGetUDec64(arr[5], 8)
     loan.Status = FastjsonGetString(arr[7])
-    loan.Rate = FastjsonGetUDec128(arr[11], 12)
+    loan.Rate = FastjsonGetUDec64(arr[11], 12)
     loan.Period = FastjsonGetUInt32(arr[12])
     loan.Renew = FastjsonGetUInt32(arr[18])!=0
     loan.NoClose = FastjsonGetUInt32(arr[20])!=0
@@ -217,9 +217,9 @@ func bitfinexGetCreditFromJson(v *fastjson.Value, credit *Credit) {
     credit.Side = FastjsonGetInt(arr[2])
     credit.CreateTime = FastjsonGetUnixTimeMilli(arr[3])
     credit.UpdateTime = FastjsonGetUnixTimeMilli(arr[4])
-    credit.Amount = FastjsonGetUDec128(arr[5], 8)
+    credit.Amount = FastjsonGetUDec64(arr[5], 8)
     credit.Status = FastjsonGetString(arr[7])
-    credit.Rate = FastjsonGetUDec128(arr[11], 12)
+    credit.Rate = FastjsonGetUDec64(arr[11], 12)
     credit.Period = FastjsonGetUInt32(arr[12])
     credit.Renew = FastjsonGetUInt32(arr[18])!=0
     credit.NoClose = FastjsonGetUInt32(arr[20])!=0
@@ -288,8 +288,8 @@ func bitfinexGetOrderFromJson(v *fastjson.Value, order *Order) {
     order.Currency = FastjsonGetString(arr[1])[1:]
     order.CreateTime = FastjsonGetUnixTimeMilli(arr[2])
     order.UpdateTime = FastjsonGetUnixTimeMilli(arr[3])
-    order.Amount, _ = FastjsonGetUDec128Signed(arr[4], 8)
-    order.AmountOrig, _ = FastjsonGetUDec128Signed(arr[5], 8)
+    order.Amount, _ = FastjsonGetUDec64Signed(arr[4], 8)
+    order.AmountOrig, _ = FastjsonGetUDec64Signed(arr[5], 8)
     status := FastjsonGetString(arr[10])
     switch status {
         case "ACTIVE":
@@ -303,7 +303,7 @@ func bitfinexGetOrderFromJson(v *fastjson.Value, order *Order) {
         default:
             panic("Unknown order status")
     }
-    order.Rate = FastjsonGetUDec128(arr[14], 12)
+    order.Rate = FastjsonGetUDec64(arr[14], 12)
     order.Period = FastjsonGetUInt32(arr[15])
     if arr[19].Type() == fastjson.TypeNumber {
         order.Renew = FastjsonGetInt(arr[19])!=0
@@ -313,7 +313,7 @@ func bitfinexGetOrderFromJson(v *fastjson.Value, order *Order) {
 }
 
 func (drv *BitfinexPrivate) SubmitBidOrder(currency string,
-                            amount,rate godec128.UDec128, period uint32,
+                            amount,rate godec64.UDec64, period uint32,
                             or *OpResult) {
     body := make([]byte, 0, 80)
     body = append(body, `{"type":"LIMIT","symbol":"f`...)

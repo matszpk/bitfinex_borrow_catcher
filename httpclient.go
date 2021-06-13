@@ -27,7 +27,7 @@ import (
     "fmt"
     "math"
     "time"
-    "github.com/matszpk/godec128"
+    "github.com/matszpk/godec64"
     "github.com/valyala/fasthttp"
     "github.com/valyala/fastjson"
 )
@@ -258,21 +258,21 @@ func FastjsonGetArray(vx *fastjson.Value) []*fastjson.Value {
     panic("Wrong json body: no array field")
 }
 
-func FastjsonGetUDec128(vx *fastjson.Value, precision uint) godec128.UDec128 {
-    if vx.Type()==fastjson.TypeNull { return godec128.UDec128{} }
+func FastjsonGetUDec64(vx *fastjson.Value, precision uint) godec64.UDec64 {
+    if vx.Type()==fastjson.TypeNull { return 0 }
     if vx.Type()==fastjson.TypeNumber {
-        ud, err := godec128.ParseUDec128Bytes(vx.MarshalTo(nil), precision, false)
+        ud, err := godec64.ParseUDec64Bytes(vx.MarshalTo(nil), precision, false)
         if err!=nil {
-            panic("Wrong json body: no udec128 field")
+            panic("Wrong json body: no udec64 field")
         }
         return ud
     }
-    panic("Wrong json body: no udec128 field")
+    panic("Wrong json body: no udec64 field")
 }
 
-func FastjsonGetUDec128Signed(vx *fastjson.Value,
-                              precision uint) (godec128.UDec128, bool) {
-    if vx.Type()==fastjson.TypeNull { return godec128.UDec128{}, false }
+func FastjsonGetUDec64Signed(vx *fastjson.Value,
+                              precision uint) (godec64.UDec64, bool) {
+    if vx.Type()==fastjson.TypeNull { return 0, false }
     neg := false
     if vx.Type()==fastjson.TypeNumber {
         str := vx.MarshalTo(nil)
@@ -280,13 +280,13 @@ func FastjsonGetUDec128Signed(vx *fastjson.Value,
             if str[0]=='-' { neg = true }
             str = str[1:]
         }
-        ud, err := godec128.ParseUDec128Bytes(str, precision, false)
+        ud, err := godec64.ParseUDec64Bytes(str, precision, false)
         if err!=nil {
-            panic("Wrong json body: no signed udec128 field")
+            panic("Wrong json body: no signed udec64 field")
         }
         return ud, neg
     }
-    panic("Wrong json body: no udec128 field")
+    panic("Wrong json body: no signed udec64 field")
 }
 
 func FastjsonGetUnixTimeMilli(vx *fastjson.Value) time.Time {

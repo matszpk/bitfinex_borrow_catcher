@@ -26,7 +26,7 @@ import (
     "fmt"
     //"time"
     "github.com/chzyer/readline"
-    //"github.com/matszpk/godec128"
+    //"github.com/matszpk/godec64"
 )
 
 func Authenticate() ([]byte, []byte) {
@@ -64,7 +64,7 @@ func main() {
     bprt.Start()
     defer bprt.Stop()
     df := NewDataFetcher(bp, bprt, "LTC")
-    df.SetUSDPriceHandler(func(mp godec128.UDec128) {
+    df.SetUSDPriceHandler(func(mp godec64.UDec64) {
         fmt.Println("MyPrice:", mp.Format(8, false))
     })
     df.SetOrderBookHandler(func(ob *OrderBook) {

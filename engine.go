@@ -28,7 +28,7 @@ import (
     "os"
     "sync"
     "time"
-    "github.com/matszpk/godec128"
+    "github.com/matszpk/godec64"
     "github.com/valyala/fastjson"
 )
 
@@ -50,17 +50,17 @@ var (
 type Config struct {
     Currency string
     // total borrowed assets - can be zero, then get from used credits
-    TotalBorrowed godec128.UDec128
+    TotalBorrowed godec64.UDec64
     // when same Bitfinex fetch loans for positions in second
     AutoLoanFetchPeriod time.Duration
     // start time before expiration
     StartBeforeExpire time.Duration
     // max acceptable rate for typical times
-    TypicalMaxRate godec128.UDec128
+    TypicalMaxRate godec64.UDec64
     // max acceptable rate for unlucky times
-    UnluckyMaxRate godec128.UDec128
+    UnluckyMaxRate godec64.UDec64
     // preferrable rate
-    PreferredRate godec128.UDec128
+    PreferredRate godec64.UDec64
     MaxFundingPeriod uint32
 }
 
@@ -74,7 +74,7 @@ func configFromJson(v *fastjson.Value, config *Config) {
             mask |= 1
         }
         if ((mask & 2) == 0 && bytes.Equal(key, configStrTotalBorrowed)) {
-            config.TotalBorrowed = FastjsonGetUDec128(vx, 8)
+            config.TotalBorrowed = FastjsonGetUDec64(vx, 8)
             mask |= 2
         }
         if ((mask & 4) == 0 && bytes.Equal(key, configStrAutoLoanFetchPeriod)) {
@@ -86,15 +86,15 @@ func configFromJson(v *fastjson.Value, config *Config) {
             mask |= 8
         }
         if ((mask & 16) == 0 && bytes.Equal(key, configStrTypicalMaxRate)) {
-            config.TypicalMaxRate = FastjsonGetUDec128(vx, 12)
+            config.TypicalMaxRate = FastjsonGetUDec64(vx, 12)
             mask |= 16
         }
         if ((mask & 32) == 0 && bytes.Equal(key, configStrUnluckyMaxRate)) {
-            config.UnluckyMaxRate = FastjsonGetUDec128(vx, 12)
+            config.UnluckyMaxRate = FastjsonGetUDec64(vx, 12)
             mask |= 32
         }
         if ((mask & 64) == 0 && bytes.Equal(key, configStrPreferredRate)) {
-            config.PreferredRate = FastjsonGetUDec128(vx, 12)
+            config.PreferredRate = FastjsonGetUDec64(vx, 12)
             mask |= 64
         }
         if ((mask & 128) == 0 && bytes.Equal(key, configStrMaxFundingPeriod)) {
@@ -103,9 +103,9 @@ func configFromJson(v *fastjson.Value, config *Config) {
         }
     })
     // fix rate from percent to (0-1)
-    config.TypicalMaxRate = config.TypicalMaxRate.Div64(100)
-    config.UnluckyMaxRate = config.UnluckyMaxRate.Div64(100)
-    config.PreferredRate = config.PreferredRate.Div64(100)
+    config.TypicalMaxRate = config.TypicalMaxRate / 100
+    config.UnluckyMaxRate = config.UnluckyMaxRate/ 100
+    config.PreferredRate = config.PreferredRate / 100
 }
 
 func (config *Config) Load(filename string) {
@@ -131,9 +131,9 @@ func (config *Config) Load(filename string) {
 
 type LastStatsPeriod struct {
     t time.Duration
-    Min godec128.UDec128
-    Avg godec128.UDec128
-    Max godec128.UDec128
+    Min godec64.UDec64
+    Avg godec64.UDec64
+    Max godec64.UDec64
 }
 
 type EngineStats struct {
@@ -147,7 +147,7 @@ type EngineStats struct {
 
 type BorrowQueueElem struct {
     ExpireTime time.Time
-    ToBorrow godec128.UDec128
+    ToBorrow godec64.UDec64
 }
 
 type BorrowQueue struct {
@@ -165,15 +165,15 @@ func (bq *BorrowQueue) Value(i int) BorrowQueueElem {
 
 // get minimal length for required amount and total to borrow
 func (bq *BorrowQueue) MinLengthToOffer(
-            required godec128.UDec128) (length int, total godec128.UDec128) {
+            required godec64.UDec64) (length int, total godec64.UDec64) {
     i := 0
-    total = godec128.UDec128{}
+    total = 0
     for i=0; i < bq.length; i++ {
-        if total.Cmp(required) > 0 {
+        if total > required {
             break
         }
         e := bq.array[(bq.startPos + i) % len(bq.array)]
-        total = total.Add(e.ToBorrow)
+        total += e.ToBorrow
     }
     length = i
     return

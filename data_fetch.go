@@ -26,7 +26,7 @@ import (
     "sync"
     "sync/atomic"
     "time"
-    "github.com/matszpk/godec128"
+    "github.com/matszpk/godec64"
 )
 
 const maxRtPeriodUpdate = 60*5
@@ -119,7 +119,7 @@ func (df *DataFetcher) SetLastTradeHandler(th TradeHandler) {
 }
 
 func (df *DataFetcher) Start() {
-    df.marketPrice.Store(godec128.UDec128{})
+    df.marketPrice.Store(godec64.UDec64(0))
     df.orderBook.Store(&OrderBook{})
     df.lastTrade.Store(&Trade{})
     go df.updater()
@@ -205,7 +205,7 @@ func (df *DataFetcher) IsUSDPrice() bool {
     return !df.noUsdPrice
 }
 
-func (df *DataFetcher) marketPriceHandler(mp godec128.UDec128) {
+func (df *DataFetcher) marketPriceHandler(mp godec64.UDec64) {
     df.marketPrice.Store(mp)
     atomic.StoreInt64(&df.rtMarketPriceLastUpdate, time.Now().Unix())
     if df.marketPriceHandlerU!=nil {
@@ -231,14 +231,14 @@ func (df *DataFetcher) tradeHandler(tr *Trade) {
     }
 }
 
-func (df *DataFetcher) GetUSDPrice() godec128.UDec128 {
+func (df *DataFetcher) GetUSDPrice() godec64.UDec64 {
     if df.usdFiat {
-        return godec128.UDec128{ 100000000, 0 }
+        return 100000000
     }
     if df.noUsdPrice {
         panic("No USD Price")
     }
-    return df.marketPrice.Load().(godec128.UDec128)
+    return df.marketPrice.Load().(godec64.UDec64)
 }
 
 func (df *DataFetcher) GetOrderBook() *OrderBook {
