@@ -43,6 +43,7 @@ var (
     bitfinexApiFundingLoans = []byte("v2/auth/r/funding/loans/f")
     bitfinexApiFundingCredits = []byte("v2/auth/r/funding/credits/f")
     bitfinexApiFundingTrades = []byte("v2/auth/r/funding/trades/f")
+    bitfinexApiPositions = []byte("v2/auth/r/positions")
     bitfinexApiSubmit = []byte("v2/auth/w/funding/offer/submit")
     bitfinexApiCancel = []byte("v2/auth/w/funding/offer/cancel")
     bitfinexApiOrders = []byte("v2/auth/r/funding/offers/f")
@@ -95,6 +96,17 @@ type OpResult struct {
     Order Order
     Success bool
     Message string
+}
+
+type Position struct {
+    Id uint64
+    Market string
+    Status string
+    Amount godec64.UDec64
+    Long bool
+    BasePrice godec64.UDec64
+    Funding godec64.UDec64
+    LiqPrice godec64.UDec64
 }
 
 type BitfinexPrivate struct {
@@ -386,4 +398,37 @@ func (drv *BitfinexPrivate) GetActiveOrders(currency string) []Order {
         bitfinexGetOrderFromJson(v, &orders[i])
     }
     return orders
+}
+
+func bitfinexGetPositionFromJson(v *fastjson.Value, pos *Position) {
+    arr := FastjsonGetArray(v)
+    if len(arr) < 19 {
+        panic("Wrong json body")
+    }
+    *pos = Position{}
+    pos.Id = FastjsonGetUInt64(arr[11])
+    pos.Market = FastjsonGetString(arr[0])[1:]
+    amount, neg := FastjsonGetUDec64Signed(arr[2], 8)
+    pos.Long = !neg
+    pos.Amount = amount
+    pos.BasePrice = FastjsonGetUDec64(arr[3], 8)
+    pos.Funding, _ = FastjsonGetUDec64Signed(arr[4], 8)
+    pos.LiqPrice = FastjsonGetUDec64(arr[8], 8)
+    pos.Status = FastjsonGetString(arr[1])
+}
+
+func (drv *BitfinexPrivate) GetPositions() []Position{
+    var rh RequestHandle
+    defer rh.Release()
+    v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost, bitfinexApiPositions,
+                                    nil, bitfinexStrEmptyJson)
+    if sc >= 400 { bitfinexPanic("Can't get positions", v, sc) }
+    
+    arr := FastjsonGetArray(v)
+    posLen := len(arr)
+    poss := make([]Position, posLen)
+    for i, v := range arr {
+        bitfinexGetPositionFromJson(v, &poss[i])
+    }
+    return poss
 }
