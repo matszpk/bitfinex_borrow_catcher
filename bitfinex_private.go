@@ -44,6 +44,7 @@ var (
     bitfinexApiFundingCredits = []byte("v2/auth/r/funding/credits/f")
     bitfinexApiFundingTrades = []byte("v2/auth/r/funding/trades/f")
     bitfinexApiPositions = []byte("v2/auth/r/positions")
+    bitfinexApiFundingClose = []byte("v2/auth/w/funding/close")
     bitfinexApiSubmit = []byte("v2/auth/w/funding/offer/submit")
     bitfinexApiCancel = []byte("v2/auth/w/funding/offer/cancel")
     bitfinexApiOrders = []byte("v2/auth/r/funding/offers/f")
@@ -91,9 +92,13 @@ type Order struct {
     Renew bool
 }
 
-
 type OpResult struct {
     Order Order
+    Success bool
+    Message string
+}
+
+type Op2Result struct {
     Success bool
     Message string
 }
@@ -324,6 +329,28 @@ func bitfinexGetOrderFromJson(v *fastjson.Value, order *Order) {
     }
 }
 
+func (drv *BitfinexPrivate) CloseFunding(loanId uint64, or *Op2Result) {
+    body := make([]byte, 0, 30)
+    body = append(body, `{"id":`...)
+    body = strconv.AppendUint(body, loanId, 10)
+    body = append(body, '}')
+    
+    var rh RequestHandle
+    defer rh.Release()
+    v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost,
+                                    bitfinexApiFundingClose, nil, body)
+    if sc >= 400 { bitfinexPanic("Can't close funding", v, sc) }
+    
+    // parse submit result
+    arr := FastjsonGetArray(v)
+    if len(arr) < 8 {
+        panic("Wrong json body")
+    }
+    
+    *or = Op2Result{}
+    or.Success = FastjsonCheckString(arr[6], bitfinexStrSUCCESS)
+}
+
 func (drv *BitfinexPrivate) SubmitBidOrder(currency string,
                             amount,rate godec64.UDec64, period uint32,
                             or *OpResult) {
@@ -356,7 +383,7 @@ func (drv *BitfinexPrivate) SubmitBidOrder(currency string,
     or.Message = FastjsonGetString(arr[7])
 }
 
-func (drv *BitfinexPrivate) CancelOrder(orderId uint64, or* OpResult) {
+func (drv *BitfinexPrivate) CancelOrder(orderId uint64, or *OpResult) {
     body := make([]byte, 0, 30)
     body = append(body, `{"id":`...)
     body = strconv.AppendUint(body, orderId, 10)
@@ -417,7 +444,7 @@ func bitfinexGetPositionFromJson(v *fastjson.Value, pos *Position) {
     pos.Status = FastjsonGetString(arr[1])
 }
 
-func (drv *BitfinexPrivate) GetPositions() []Position{
+func (drv *BitfinexPrivate) GetPositions() []Position {
     var rh RequestHandle
     defer rh.Release()
     v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost, bitfinexApiPositions,

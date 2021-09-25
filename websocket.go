@@ -286,7 +286,6 @@ func (drv *websocketDriver) handleMessages() {
     msgCh := make(chan wsConnMsg, 2)
     defer close(msgCh)
     good := true
-    var closed uint32 = 0
     
     for good {
         go func() {
@@ -302,8 +301,13 @@ func (drv *websocketDriver) handleMessages() {
             if conn==nil { return }
             // read message from connection
             msgType, msg, err := conn.ReadMessage()
-            if err!=nil { drv.sendErr(drv.errCh, err) }
-            if atomic.LoadUint32(&closed)==1 { return } // if already closed
+            if err!=nil {
+                errStr := fmt.Sprint(err)
+                if strings.LastIndex(errStr, "use of closed network connection")==-1 {
+                    // if not this error (use of closed connection)
+                    drv.sendErr(drv.errCh, err)
+                }
+            }
             if len(msg)!=0 {
                 msgCh <- wsConnMsg{ msg, msgType }
             }
