@@ -332,7 +332,7 @@ func (drv *websocketDriver) handleMessages() {
                     good = drv.reconnect()
                 } else if (err!=nil) {
                     // other error
-                    h := drv.errorHandler.Load().(*errorHandlerPack)
+                    h := drv.errorHandler.Load().(errorHandlerPack)
                     if h.h!=nil && err!=nil {
                         go h.h(err)
                     }

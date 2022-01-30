@@ -38,10 +38,7 @@ var (
     configStrCurrency = []byte("currency")
     configStrAutoLoanFetchPeriod = []byte("autoLoanFetchPeriod")
     configStrStartBeforeExpire = []byte("startBeforeExpire")
-    configStrTypicalMaxRate = []byte("typicalMaxRate")
-    configStrUnluckyMaxRate = []byte("unluckyMaxRate")
-    configStrPreferredRate = []byte("preferredRate")
-    configStrMaxFundingPeriod = []byte("maxFundingPeriod")
+    configStrSettlementCostFactor = []byte("settlementCostFactor")
 )
 
 type Config struct {
@@ -50,6 +47,8 @@ type Config struct {
     AutoLoanFetchPeriod time.Duration
     // start time before expiration
     StartBeforeExpire time.Duration
+    // settlement cost factor
+    SettlementCostFactor float64
 }
 
 func configFromJson(v *fastjson.Value, config *Config) {
@@ -68,6 +67,10 @@ func configFromJson(v *fastjson.Value, config *Config) {
         if ((mask & 4) == 0 && bytes.Equal(key, configStrStartBeforeExpire)) {
             config.StartBeforeExpire = FastjsonGetDuration(vx)
             mask |= 4
+        }
+        if ((mask & 8) == 0 && bytes.Equal(key, configStrSettlementCostFactor)) {
+            config.SettlementCostFactor = FastjsonGetFloat64(vx)
+            mask |= 8
         }
     })
 }

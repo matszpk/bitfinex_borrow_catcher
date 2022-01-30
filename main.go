@@ -24,9 +24,9 @@ package main
 
 import (
     "fmt"
-    //"time"
+    "time"
     "github.com/chzyer/readline"
-    //"github.com/matszpk/godec64"
+    "github.com/matszpk/godec64"
 )
 
 func Authenticate() ([]byte, []byte) {
@@ -42,13 +42,13 @@ func Authenticate() ([]byte, []byte) {
 }
 
 func main() {
-    apiKey, secretKey := Authenticate()
+    /*apiKey, secretKey := Authenticate()
     bpriv := NewBitfinexPrivate(apiKey, secretKey)
     for _, p := range bpriv.GetPositions() {
         fmt.Println(p)
-    }
+    }*/
     /*bp := NewBitfinexPublic()
-    fmt.Println("BTCUSD", bp.GetMarketPrice("ADAUSD").Format(8, false))*/
+    fmt.Println("BTCUSD", bp.GetMarketPrice("BTCUST").Format(8, false))*/
     /*bprt := NewBitfinexRTPublic()
     bprt.Start()
     defer bprt.Stop()
@@ -59,11 +59,11 @@ func main() {
         fmt.Println("MyTrade:", *tr)
     })
     time.Sleep(time.Minute*10)*/
-    /*bp := NewBitfinexPublic()
+    bp := NewBitfinexPublic()
     bprt := NewBitfinexRTPublic()
     bprt.Start()
     defer bprt.Stop()
-    df := NewDataFetcher(bp, bprt, "LTC")
+    df := NewDataFetcher(bp, bprt, "UST")
     df.SetUSDPriceHandler(func(mp godec64.UDec64) {
         fmt.Println("MyPrice:", mp.Format(8, false))
     })
@@ -83,5 +83,5 @@ func main() {
         fmt.Println("LTC Funding Ask:", ob.Ask)
         fmt.Println("LTC Funding Trade:", *df.GetLastTrade())
         time.Sleep(5*time.Second)
-    }*/
+    }
 }
