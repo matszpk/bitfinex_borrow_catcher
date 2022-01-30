@@ -248,3 +248,7 @@ func (df *DataFetcher) GetOrderBook() *OrderBook {
 func (df *DataFetcher) GetLastTrade() *Trade {
     return df.lastTrade.Load().(*Trade)
 }
+
+func (df *DataFetcher) GetPublic() *BitfinexPublic {
+    return df.public
+}

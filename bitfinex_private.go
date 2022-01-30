@@ -40,6 +40,7 @@ var (
     bitfinexStrSignature = []byte("bfx-signature")
     bitfinexStrApiPrefix = []byte("/api/")
     bitfinexStrEmptyJson = []byte("{}")
+    bitfinexApiWallets = []byte("v2/auth/r/wallets")
     bitfinexApiFundingLoans = []byte("v2/auth/r/funding/loans/f")
     bitfinexApiFundingCredits = []byte("v2/auth/r/funding/credits/f")
     bitfinexApiFundingTrades = []byte("v2/auth/r/funding/trades/f")
@@ -50,6 +51,13 @@ var (
     bitfinexApiOrders = []byte("v2/auth/r/funding/offers/f")
     bitfinexStrSUCCESS = []byte("SUCCESS")
 )
+
+type Balance struct {
+    Currency string
+    Type string
+    Total godec64.UDec64
+    Available godec64.UDec64
+}
 
 type Loan struct {
     Id uint64
@@ -150,6 +158,40 @@ func (drv *BitfinexPrivate) handleHttpPostJson(rh *RequestHandle,
         bitfinexStrSignature, sumHex }
     
     return rh.HandleHttpPostJson(&drv.httpClient, host, uri, query, bodyStr, headers)
+}
+
+func bitfinexGetBalanceFromJson(v *fastjson.Value, bal *Balance) {
+    arr := FastjsonGetArray(v)
+    if len(arr) < 7 {
+        panic("Wrong json body")
+    }
+    *bal = Balance{}
+    
+    bal.Currency = FastjsonGetString(arr[1])
+    bal.Type = FastjsonGetString(arr[0])
+    t, m := FastjsonGetUDec64Signed(arr[2], 8)
+    if !m { bal.Total = t }
+    bal.Available = FastjsonGetUDec64(arr[4], 8)
+}
+
+func (drv *BitfinexPrivate) GetMarginBalances() []Balance {
+    var rh RequestHandle
+    defer rh.Release()
+    v, sc := drv.handleHttpPostJson(&rh, bitfinexPrivApiHost, bitfinexApiWallets, nil,
+                                    bitfinexStrEmptyJson)
+    if sc >= 400 { bitfinexPanic("Can't get margin balances", v, sc) }
+    
+    arr := FastjsonGetArray(v)
+    bals := make([]Balance, 0)
+    
+    for _, v := range arr {
+        var bal Balance
+        bitfinexGetBalanceFromJson(v, &bal)
+        if bal.Type == "margin" {
+            bals = append(bals, bal)
+        }
+    }
+    return bals
 }
 
 func bitfinexGetLoanFromJson(v *fastjson.Value, loan *Loan) {

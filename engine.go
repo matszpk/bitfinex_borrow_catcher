@@ -39,7 +39,10 @@ var (
     configStrAutoLoanFetchPeriod = []byte("autoLoanFetchPeriod")
     configStrAutoLoanFetchShift = []byte("autoLoanFetchShift")
     configStrAutoLoanFetchEndShift = []byte("autoLoanFetchEndShift")
+    configStrStartTimeBeforeExpiration = []byte("startTimeBeforeExpiration")
     configStrSettlementCostFactor = []byte("settlementCostFactor")
+    configStrMinRateDifference = []byte("minRateDifference")
+    configStrMinOrderAmount = []byte("minOrderAmount")
 )
 
 type Config struct {
@@ -49,8 +52,11 @@ type Config struct {
     // when same bitfinex fetch loans for positions - shift in second
     AutoLoanFetchShift time.Duration
     AutoLoanFetchEndShift time.Duration
+    StartTimeBeforeExpiration time.Duration
     // settlement cost factor
     SettlementCostFactor float64
+    MinRateDifference float64
+    MinOrderAmount godec64.UDec64
 }
 
 func configFromJson(v *fastjson.Value, config *Config) {
@@ -74,9 +80,21 @@ func configFromJson(v *fastjson.Value, config *Config) {
             config.AutoLoanFetchEndShift = FastjsonGetDuration(vx)
             mask |= 8
         }
-        if ((mask & 16) == 0 && bytes.Equal(key, configStrSettlementCostFactor)) {
-            config.SettlementCostFactor = FastjsonGetFloat64(vx)
+        if ((mask & 16) == 0 && bytes.Equal(key, configStrStartTimeBeforeExpiration)) {
+            config.StartTimeBeforeExpiration = FastjsonGetDuration(vx)
             mask |= 16
+        }
+        if ((mask & 32) == 0 && bytes.Equal(key, configStrSettlementCostFactor)) {
+            config.SettlementCostFactor = FastjsonGetFloat64(vx)
+            mask |= 32
+        }
+        if ((mask & 64) == 0 && bytes.Equal(key, configStrMinRateDifference)) {
+            config.MinRateDifference = FastjsonGetFloat64(vx)
+            mask |= 64
+        }
+        if ((mask & 128) == 0 && bytes.Equal(key, configStrMinOrderAmount)) {
+            config.MinOrderAmount = FastjsonGetUDec64(vx, 12)
+            mask |= 128
         }
     })
 }
@@ -100,6 +118,11 @@ func (config *Config) Load(filename string) {
     }
 }
 
+type BorrowTask struct {
+    TotalBorrow godec64.UDec64
+    LoanIdsToClose []uint64
+}
+
 /* Engine stats */
 
 type LastStatsPeriod struct {
@@ -116,115 +139,54 @@ type EngineStats struct {
     hourStats LastStatsPeriod
 }
 
-/* borrow queue */
-
-type BorrowQueueElem struct {
-    ExpireTime time.Time
-    ToBorrow godec64.UDec64
-}
-
-type BorrowQueue struct {
-    startPos int
-    length int
-    array []BorrowQueueElem
-}
-
-func (bq *BorrowQueue) Value(i int) BorrowQueueElem {
-    if i >= bq.length {
-        panic("Index overflow")
-    }
-    return bq.array[(bq.startPos + i) % len(bq.array)]
-}
-
-// get minimal length for required amount and total to borrow
-func (bq *BorrowQueue) MinLengthToOffer(
-            required godec64.UDec64) (length int, total godec64.UDec64) {
-    i := 0
-    total = 0
-    k := bq.startPos
-    arrLen := len(bq.array)
-    for i=0; i < bq.length; i++ {
-        if total > required {
-            break
-        }
-        e := bq.array[k]
-        k++
-        if k >= arrLen { k = 0 }
-        total += e.ToBorrow
-    }
-    length = i
-    return
-}
-
-func (bq *BorrowQueue) newArray() {
-    // create new longer array
-    alen := len(bq.array)
-    newArray := make([]BorrowQueueElem, (bq.length+1)*2)
-    k := bq.startPos
-    for i := 0; i < bq.length; i++ {
-        newArray[i] = bq.array[k]
-        k++
-        if k >= alen { k = 0 }
-    }
-    bq.array = newArray
-    bq.startPos = 0
-}
-
-func (bq *BorrowQueue) Push(e BorrowQueueElem) {
-    alen := len(bq.array)
-    if bq.length >= alen {
-        bq.newArray()
-    }
-    bq.array[(bq.startPos + bq.length) % alen] = e
-    bq.length++
-}
-
-func (bq *BorrowQueue) Pop() BorrowQueueElem {
-    if bq.length == 0 {
-        panic("No elements in queue")
-    }
-    elem := bq.array[bq.startPos]
-    bq.startPos++
-    alen := len(bq.array)
-    if bq.startPos >= alen {
-        bq.startPos = 0
-    }
-    bq.length--
-    if bq.length*4 < alen {
-        // shrink array if too many free cells
-        bq.newArray()
-    }
-    return elem
-}
-
 /* Engine stuff */
 
 type Engine struct {
     stopCh chan struct{}
+    baseCurrMarkets map[string]bool
+    quoteCurrMarkets map[string]bool
     config *Config
     df *DataFetcher
     bpriv *BitfinexPrivate
-    autoFetchShiftTimeSet bool
-    autoFetchShiftTime time.Duration
     stats EngineStats
     mutex sync.Mutex
-    borrowQueue BorrowQueue
 }
 
 func NewEngine(config *Config, df *DataFetcher, bpriv *BitfinexPrivate) *Engine {
-    return &Engine{ stopCh: make(chan struct{}), config: config,
-                df: df, bpriv: bpriv }
+    return &Engine{ stopCh: make(chan struct{}),
+                baseCurrMarkets: make(map[string]bool),
+                quoteCurrMarkets: make(map[string]bool),
+                config: config, df: df, bpriv: bpriv }
+}
+
+func (eng *Engine) PrepareMarkets() {
+    bp := eng.df.GetPublic()
+    markets := bp.GetMarkets()
+    for _, m := range markets {
+        if  eng.config.Currency == m.BaseCurrency {
+            eng.baseCurrMarkets[eng.config.Currency] = true
+        } else if  eng.config.Currency == m.QuoteCurrency {
+            eng.quoteCurrMarkets[eng.config.Currency] = true
+        }
+    }
 }
 
 func (eng *Engine) Start() {
     eng.df.SetOrderBookHandler(eng.checkOrderBook)
+    eng.df.SetLastTradeHandler(eng.checkLastTrade)
     go eng.mainRoutine()
 }
 
 func (eng *Engine) Stop() {
     eng.stopCh <- struct{}{}
     eng.df.SetOrderBookHandler(nil)
+    eng.df.SetLastTradeHandler(nil)
 }
+
+/*func (eng *Engine) PrepareBorrowTask(ob *OrderBook) {
+    poss := eng.bpriv.GetPositions()
+    posCosts := make(map[string]godec64.UDec64)
+}*/
 
 func (eng *Engine) checkOrderBook(ob *OrderBook) {
     if len(ob.Ask)==0 {
@@ -232,10 +194,7 @@ func (eng *Engine) checkOrderBook(ob *OrderBook) {
     }
 }
 
-func (eng *Engine) pushPendingBorrows() {
-    eng.mutex.Lock()
-    defer eng.mutex.Unlock()
-    //credits := eng.bpriv.GetCredits(eng.DataFetch.GetCurrency())
+func (eng *Engine) checkLastTrade(tr *Trade) {
 }
 
 func (eng *Engine) mainRoutine() {

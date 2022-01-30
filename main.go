@@ -24,7 +24,7 @@ package main
 
 import (
     "fmt"
-    "time"
+    //"time"
     "github.com/chzyer/readline"
     //"github.com/matszpk/godec64"
 )
@@ -42,14 +42,17 @@ func Authenticate() ([]byte, []byte) {
 }
 
 func main() {
-    /*apiKey, secretKey := Authenticate()
+    apiKey, secretKey := Authenticate()
     bpriv := NewBitfinexPrivate(apiKey, secretKey)
-    for _, p := range bpriv.GetPositions() {
+    /*for _, p := range bpriv.GetPositions() {
         fmt.Println(p)
     }*/
+    for _, l := range bpriv.GetMarginBalances() {
+        fmt.Println(l)
+    }
     /*bp := NewBitfinexPublic()
     fmt.Println("BTCUSD", bp.GetMarketPrice("BTCUST").Format(8, false))*/
-    bprt := NewBitfinexRTPublic()
+    /*bprt := NewBitfinexRTPublic()
     bprt.Start()
     defer bprt.Stop()
     bprt.SubscribeOrderBook("USD", func(ob *OrderBook) {
@@ -58,7 +61,7 @@ func main() {
     bprt.SubscribeTrades("USD", func(tr *Trade) {
         fmt.Println("MyTrade:", *tr)
     })
-    time.Sleep(time.Minute*100)
+    time.Sleep(time.Minute*100)*/
     /*bp := NewBitfinexPublic()
     bprt := NewBitfinexRTPublic()
     bprt.Start()
