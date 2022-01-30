@@ -28,6 +28,7 @@ import (
     "fmt"
     "sync"
     "sync/atomic"
+    "time"
     "net/http"
     "github.com/gorilla/websocket"
     "github.com/valyala/fastjson"
@@ -47,6 +48,8 @@ type BitfinexRTPublic struct {
     wsTradeChanIdMap map[string]string
     wsOrderBookChanIdMap map[string]string
     wsOrderBookBrokenMap sync.Map
+    wsOrderBookResubTicker *time.Ticker
+    wsOrderBookResubTickerQuit chan struct{}
 }
 
 type bitfinexChannelEntry struct {
@@ -87,6 +90,16 @@ func (drv *BitfinexRTPublic) wsLateInit() {
     drv.wsTradeChanIdMap = make(map[string]string)
     drv.wsOrderBookChanIdMap = make(map[string]string)
     drv.wsOrderBookBrokenMap = sync.Map{}
+    drv.wsOrderBookResubTickerQuit = make(chan struct{})
+    drv.wsOrderBookResubTicker = time.NewTicker(10*time.Minute)
+    go func() {
+        select {
+            case <-drv.wsOrderBookResubTicker.C:
+                drv.resubscribeOrderBooks()
+            case <-drv.wsOrderBookResubTickerQuit:
+                return
+        }
+    }()
 }
 
 func (drv *BitfinexRTPublic) wsHandleMessage(msg []byte) {
@@ -245,6 +258,9 @@ func (drv *BitfinexRTPublic) Start() {
 }
 
 func (drv *BitfinexRTPublic) Stop() {
+    drv.wsOrderBookResubTickerQuit <- struct{}{}
+    close(drv.wsOrderBookResubTickerQuit)
+    drv.wsOrderBookResubTicker.Stop()
     drv.stop()
     drv.wsChannelMap = sync.Map{}
     drv.wsMarketPriceChanIdMap = nil
@@ -410,10 +426,7 @@ func (drv *BitfinexRTPublic) SubscribeOrderBook(currency string, h OrderBookHand
     drv.subscribeOrderBookInt(currency, h)
 }
 
-func (drv *BitfinexRTPublic) UnsubscribeOrderBook(currency string) {
-    drv.callMutex.Lock()
-    defer drv.callMutex.Unlock()
-    
+func (drv *BitfinexRTPublic) unsubscribeOrderBookInt(currency string) {
     chanId := drv.wsOrderBookChanIdMap[currency]
     drv.handleCommand(bitfinexUnsubscribeCmd(chanId))
     drv.unsetDiffOrderBookHandler(currency)
@@ -423,21 +436,41 @@ func (drv *BitfinexRTPublic) UnsubscribeOrderBook(currency string) {
     drv.wsOrderBookBrokenMap.Delete(currency)
 }
 
+func (drv *BitfinexRTPublic) UnsubscribeOrderBook(currency string) {
+    drv.callMutex.Lock()
+    defer drv.callMutex.Unlock()
+    
+    drv.unsubscribeOrderBookInt(currency)
+}
+
 // resubscribe OrderBook after missing sequences to get initial orderbook
 func (drv *BitfinexRTPublic) resubscribeOrderBook(currency string) {
     drv.callMutex.Lock()
     defer drv.callMutex.Unlock()
     
-    chanId := drv.wsOrderBookChanIdMap[currency]
-    drv.handleCommand(bitfinexUnsubscribeCmd(chanId))
-    
-    delete(drv.wsOrderBookChanIdMap, currency)
-    drv.wsChannelMap.Delete(chanId)
+    Logger.Println("resubscribe orderbook ", currency)
+    h := drv.getDiffOrderBookHandle(currency).h
+    drv.unsubscribeOrderBookInt(currency)
     // subscribe again
-    chanId = drv.handleCommand(bitfinexSubscribeOrderBookCmd(currency))
+    drv.subscribeOrderBookInt(currency, h)
+}
+
+func (drv *BitfinexRTPublic) getActiveOrderBooks() []string {
+    drv.callMutex.Lock()
+    defer drv.callMutex.Unlock()
     
-    drv.wsOrderBookChanIdMap[currency] = chanId
-    drv.wsAddChannel(chanId, wsDiffOrderBook, currency, true)
+    var currlist []string
+    for k, _ := range drv.wsOrderBookChanIdMap {
+        currlist = append(currlist, k)
+    }
+    return currlist
+}
+
+func (drv *BitfinexRTPublic) resubscribeOrderBooks() {
+    currlist := drv.getActiveOrderBooks()
+    for _, curr := range currlist {
+        drv.resubscribeOrderBook(curr)
+    }
 }
 
 func (drv *BitfinexRTPublic) wsResubscribeChannel(chType wsChannelType, key string) {

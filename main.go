@@ -26,7 +26,7 @@ import (
     "fmt"
     "time"
     "github.com/chzyer/readline"
-    "github.com/matszpk/godec64"
+    //"github.com/matszpk/godec64"
 )
 
 func Authenticate() ([]byte, []byte) {
@@ -49,7 +49,7 @@ func main() {
     }*/
     /*bp := NewBitfinexPublic()
     fmt.Println("BTCUSD", bp.GetMarketPrice("BTCUST").Format(8, false))*/
-    /*bprt := NewBitfinexRTPublic()
+    bprt := NewBitfinexRTPublic()
     bprt.Start()
     defer bprt.Stop()
     bprt.SubscribeOrderBook("USD", func(ob *OrderBook) {
@@ -58,8 +58,8 @@ func main() {
     bprt.SubscribeTrades("USD", func(tr *Trade) {
         fmt.Println("MyTrade:", *tr)
     })
-    time.Sleep(time.Minute*10)*/
-    bp := NewBitfinexPublic()
+    time.Sleep(time.Minute*100)
+    /*bp := NewBitfinexPublic()
     bprt := NewBitfinexRTPublic()
     bprt.Start()
     defer bprt.Stop()
@@ -83,5 +83,5 @@ func main() {
         fmt.Println("LTC Funding Ask:", ob.Ask)
         fmt.Println("LTC Funding Trade:", *df.GetLastTrade())
         time.Sleep(5*time.Second)
-    }
+    }*/
 }
