@@ -38,6 +38,7 @@ var (
     configStrCurrency = []byte("currency")
     configStrAutoLoanFetchPeriod = []byte("autoLoanFetchPeriod")
     configStrAutoLoanFetchShift = []byte("autoLoanFetchShift")
+    configStrAutoLoanFetchEndShift = []byte("autoLoanFetchEndShift")
     configStrSettlementCostFactor = []byte("settlementCostFactor")
 )
 
@@ -47,6 +48,7 @@ type Config struct {
     AutoLoanFetchPeriod time.Duration
     // when same bitfinex fetch loans for positions - shift in second
     AutoLoanFetchShift time.Duration
+    AutoLoanFetchEndShift time.Duration
     // settlement cost factor
     SettlementCostFactor float64
 }
@@ -68,9 +70,13 @@ func configFromJson(v *fastjson.Value, config *Config) {
             config.AutoLoanFetchShift = FastjsonGetDuration(vx)
             mask |= 4
         }
-        if ((mask & 8) == 0 && bytes.Equal(key, configStrSettlementCostFactor)) {
-            config.SettlementCostFactor = FastjsonGetFloat64(vx)
+        if ((mask & 8) == 0 && bytes.Equal(key, configStrAutoLoanFetchEndShift)) {
+            config.AutoLoanFetchEndShift = FastjsonGetDuration(vx)
             mask |= 8
+        }
+        if ((mask & 16) == 0 && bytes.Equal(key, configStrSettlementCostFactor)) {
+            config.SettlementCostFactor = FastjsonGetFloat64(vx)
+            mask |= 16
         }
     })
 }
