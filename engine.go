@@ -26,6 +26,7 @@ import (
     "bytes"
     "io/ioutil"
     "os"
+    "sort"
     "sync"
     "time"
     "github.com/valyala/fastjson"
@@ -183,10 +184,90 @@ func (eng *Engine) Stop() {
     eng.df.SetLastTradeHandler(nil)
 }
 
-/*func (eng *Engine) PrepareBorrowTask(ob *OrderBook) {
-    poss := eng.bpriv.GetPositions()
-    posCosts := make(map[string]godec64.UDec64)
-}*/
+type CreditsSort []Credit
+
+func (cs CreditsSort) Len() int {
+    return len(cs)
+}
+
+func (cs CreditsSort) Less(i, j int) bool {
+    return cs[i].Rate < cs[j].Rate
+}
+
+func (cs CreditsSort) Swap(i, j int) {
+    cs[i], cs[j] = cs[j], cs[i]
+}
+
+func (eng *Engine) prepareBorrowTask(ob *OrderBook) BorrowTask {
+    oblen := len(ob.Ask)
+    
+    var task BorrowTask
+    if oblen == 0 { return task }
+    credits := eng.bpriv.GetCredits(eng.config.Currency)
+    if len(credits) == 0 { return task }
+    sort.Sort(CreditsSort(credits))
+    var obSumAmountRate float64 = 0
+    var csSumAmountRate float64 = 0
+    var obTotalAmount float64 = 0
+    var csTotalAmount float64 = 0
+    obi := 0
+    var obFilled godec64.UDec64 = 0
+    
+    // find balance between orderbook average rate and credits average rate.
+    // find orderbook average rate starting from lowest orders to highest orders.
+    // find credits average rate starting from highest to lowest rate.
+    for csi := len(credits)-1 ;csi >= 0; csi-- {
+        csAmount := credits[csi].Amount
+        // map credit to orderbook offers.
+        csEntryAmount := csAmount.ToFloat64(8)
+        csAmountRate := csEntryAmount * credits[csi].Rate.ToFloat64(12)
+        
+        var obAmountRate float64 = 0
+        for ; obi < oblen && csAmount >= ob.Ask[obi].Amount - obFilled ; obi++ {
+            obAmount := (ob.Ask[obi].Amount - obFilled).ToFloat64(8)
+            obAmountRate += obAmount * ob.Ask[obi].Rate.ToFloat64(12)
+            obTotalAmount += obAmount
+            csAmount -= ob.Ask[obi].Amount - obFilled
+            obFilled = 0
+        }
+        if obi == oblen { break }
+        if csAmount < ob.Ask[obi].Amount - obFilled {
+            obAmount := csAmount.ToFloat64(8)
+            obAmountRate += obAmount * ob.Ask[obi].Rate.ToFloat64(12)
+            obTotalAmount += obAmount
+            obFilled += csAmount
+        }
+        
+        csAmount = credits[csi].Amount
+        
+        // check whether result is not worse than in highest credit loan
+        var hcsAmountRate float64 = 0
+        hcsi := len(credits)-1
+        for ; hcsi >= 0 && csAmount >= credits[hcsi].Amount; hcsi-- {
+            hcsAmount := (credits[hcsi].Amount).ToFloat64(8)
+            hcsAmountRate += hcsAmount * credits[hcsi].Rate.ToFloat64(12)
+        }
+        if hcsi >= 0 && csAmount < credits[hcsi].Amount {
+            hcsAmount := csAmount.ToFloat64(8)
+            hcsAmountRate += hcsAmount * credits[hcsi].Rate.ToFloat64(12)
+        }
+        
+        csAmount = credits[csi].Amount
+        
+        if hcsAmountRate < obAmountRate { break }
+        
+        obSumAmountRate += obAmountRate
+        csSumAmountRate += csAmountRate
+        csTotalAmount += csEntryAmount
+        if obSumAmountRate / obTotalAmount <= (csSumAmountRate / csTotalAmount) *
+                (1.0 - eng.config.MinRateDifference) {
+            task.LoanIdsToClose = append(task.LoanIdsToClose, credits[csi].Id)
+            task.TotalBorrow += csAmount
+        } else { break }
+    }
+    
+    return task
+}
 
 func (eng *Engine) checkOrderBook(ob *OrderBook) {
     if len(ob.Ask)==0 {
