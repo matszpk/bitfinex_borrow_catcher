@@ -1,5 +1,5 @@
 /*
- * engine.go - data fetching module
+ * engine.go - main engine module
  *
  * bitfinex_borrow_catcher - Automatic borrow catcher for open positions in
  *                            the Bitfinex exchange
@@ -28,11 +28,9 @@ import (
     "os"
     "sync"
     "time"
-    "github.com/matszpk/godec64"
     "github.com/valyala/fastjson"
+    "github.com/matszpk/godec64"
 )
-
-const engCheckStatusPeriod = time.Second*30
 
 /* Config stuff */
 
@@ -48,19 +46,10 @@ var (
 
 type Config struct {
     Currency string
-    // total borrowed assets - can be zero, then get from used credits
-    TotalBorrowed godec64.UDec64
     // when same Bitfinex fetch loans for positions in second
     AutoLoanFetchPeriod time.Duration
     // start time before expiration
     StartBeforeExpire time.Duration
-    // max acceptable rate for typical times
-    TypicalMaxRate godec64.UDec64
-    // max acceptable rate for unlucky times
-    UnluckyMaxRate godec64.UDec64
-    // preferrable rate
-    PreferredRate godec64.UDec64
-    MaxFundingPeriod uint32
 }
 
 func configFromJson(v *fastjson.Value, config *Config) {
@@ -80,27 +69,7 @@ func configFromJson(v *fastjson.Value, config *Config) {
             config.StartBeforeExpire = FastjsonGetDuration(vx)
             mask |= 4
         }
-        if ((mask & 8) == 0 && bytes.Equal(key, configStrTypicalMaxRate)) {
-            config.TypicalMaxRate = FastjsonGetUDec64(vx, 12)
-            mask |= 8
-        }
-        if ((mask & 16) == 0 && bytes.Equal(key, configStrUnluckyMaxRate)) {
-            config.UnluckyMaxRate = FastjsonGetUDec64(vx, 12)
-            mask |= 16
-        }
-        if ((mask & 32) == 0 && bytes.Equal(key, configStrPreferredRate)) {
-            config.PreferredRate = FastjsonGetUDec64(vx, 12)
-            mask |= 32
-        }
-        if ((mask & 64) == 0 && bytes.Equal(key, configStrMaxFundingPeriod)) {
-            config.MaxFundingPeriod = FastjsonGetUInt32(vx)
-            mask |= 64
-        }
     })
-    // fix rate from percent to (0-1)
-    config.TypicalMaxRate = config.TypicalMaxRate / 100
-    config.UnluckyMaxRate = config.UnluckyMaxRate/ 100
-    config.PreferredRate = config.PreferredRate / 100
 }
 
 func (config *Config) Load(filename string) {
@@ -261,7 +230,7 @@ func (eng *Engine) pushPendingBorrows() {
 }
 
 func (eng *Engine) mainRoutine() {
-    ticker := time.NewTicker(engCheckStatusPeriod)
+    /*ticker := time.NewTicker(engCheckStatusPeriod)
     defer ticker.Stop()
     
     stopped := false
@@ -271,5 +240,5 @@ func (eng *Engine) mainRoutine() {
             case <- eng.stopCh:
                 stopped = true
         }
-    }
+    }*/
 }
