@@ -84,6 +84,15 @@ func (drv *BitfinexRTPublic) wsInitMessage() {
     if msgType!=websocket.TextMessage{ panic("Message type is not CodeText") }
 }
 
+func (drv *BitfinexRTPublic) resubscribeOrderBooksSafe() {
+    defer func() {
+        if x := recover(); x!=nil {
+            Logger.Error("Error on calling resubscribeOrderBooks", x)
+        }
+    }()
+    drv.resubscribeOrderBooks()
+}
+
 func (drv *BitfinexRTPublic) wsLateInit() {
     drv.wsChannelMap = sync.Map{}
     drv.wsMarketPriceChanIdMap = make(map[string]string)
@@ -93,11 +102,13 @@ func (drv *BitfinexRTPublic) wsLateInit() {
     drv.wsOrderBookResubTickerQuit = make(chan struct{})
     drv.wsOrderBookResubTicker = time.NewTicker(10*time.Minute)
     go func() {
-        select {
-            case <-drv.wsOrderBookResubTicker.C:
-                drv.resubscribeOrderBooks()
-            case <-drv.wsOrderBookResubTickerQuit:
-                return
+        for {
+            select {
+                case <-drv.wsOrderBookResubTicker.C:
+                    drv.resubscribeOrderBooksSafe()
+                case <-drv.wsOrderBookResubTickerQuit:
+                    return
+            }
         }
     }()
 }
