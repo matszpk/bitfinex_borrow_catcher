@@ -198,12 +198,11 @@ func (cs CreditsSort) Swap(i, j int) {
     cs[i], cs[j] = cs[j], cs[i]
 }
 
-func (eng *Engine) prepareBorrowTask(ob *OrderBook) BorrowTask {
+func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit) BorrowTask {
     oblen := len(ob.Ask)
     
     var task BorrowTask
     if oblen == 0 { return task }
-    credits := eng.bpriv.GetCredits(eng.config.Currency)
     if len(credits) == 0 { return task }
     sort.Sort(CreditsSort(credits))
     var obSumAmountRate float64 = 0
