@@ -480,7 +480,8 @@ func bitfinexGetPositionFromJson(v *fastjson.Value, pos *Position) {
     amount, neg := FastjsonGetUDec64Signed(arr[2], 8)
     pos.Long = !neg
     pos.Amount = amount
-    pos.BasePrice = FastjsonGetUDec64(arr[3], 8)
+    pos.BasePrice, neg = FastjsonGetUDec64Signed(arr[3], 8)
+    if neg { pos.BasePrice = 0 }
     pos.Funding, _ = FastjsonGetUDec64Signed(arr[4], 8)
     pos.LiqPrice = FastjsonGetUDec64(arr[8], 8)
     pos.Status = FastjsonGetString(arr[1])

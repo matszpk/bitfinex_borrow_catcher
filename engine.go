@@ -40,8 +40,6 @@ var (
     configStrAutoLoanFetchPeriod = []byte("autoLoanFetchPeriod")
     configStrAutoLoanFetchShift = []byte("autoLoanFetchShift")
     configStrAutoLoanFetchEndShift = []byte("autoLoanFetchEndShift")
-    configStrStartTimeBeforeExpiration = []byte("startTimeBeforeExpiration")
-    configStrSettlementCostFactor = []byte("settlementCostFactor")
     configStrMinRateDifference = []byte("minRateDifference")
     configStrMinOrderAmount = []byte("minOrderAmount")
 )
@@ -53,9 +51,6 @@ type Config struct {
     // when same bitfinex fetch loans for positions - shift in second
     AutoLoanFetchShift time.Duration
     AutoLoanFetchEndShift time.Duration
-    StartTimeBeforeExpiration time.Duration
-    // settlement cost factor
-    SettlementCostFactor float64
     MinRateDifference float64
     MinOrderAmount godec64.UDec64
 }
@@ -81,21 +76,13 @@ func configFromJson(v *fastjson.Value, config *Config) {
             config.AutoLoanFetchEndShift = FastjsonGetDuration(vx)
             mask |= 8
         }
-        if ((mask & 16) == 0 && bytes.Equal(key, configStrStartTimeBeforeExpiration)) {
-            config.StartTimeBeforeExpiration = FastjsonGetDuration(vx)
+        if ((mask & 16) == 0 && bytes.Equal(key, configStrMinRateDifference)) {
+            config.MinRateDifference = FastjsonGetFloat64(vx)
             mask |= 16
         }
-        if ((mask & 32) == 0 && bytes.Equal(key, configStrSettlementCostFactor)) {
-            config.SettlementCostFactor = FastjsonGetFloat64(vx)
-            mask |= 32
-        }
-        if ((mask & 64) == 0 && bytes.Equal(key, configStrMinRateDifference)) {
-            config.MinRateDifference = FastjsonGetFloat64(vx)
-            mask |= 64
-        }
-        if ((mask & 128) == 0 && bytes.Equal(key, configStrMinOrderAmount)) {
+        if ((mask & 32) == 0 && bytes.Equal(key, configStrMinOrderAmount)) {
             config.MinOrderAmount = FastjsonGetUDec64(vx, 12)
-            mask |= 128
+            mask |= 32
         }
     })
 }
@@ -198,13 +185,63 @@ func (cs CreditsSort) Swap(i, j int) {
     cs[i], cs[j] = cs[j], cs[i]
 }
 
-func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit) BorrowTask {
+func (eng *Engine) calculateTotalBorrow(poss []Position, bals []Balance) godec64.UDec64 {
+    var totalBal godec64.UDec64 = 0
+    for i := 0; i < len(bals); i++ {
+        if bals[i].Currency == eng.config.Currency {
+            totalBal = bals[i].Total
+            break
+        }
+    }
+    
+    var posTotalVal godec64.UDec64 = 0
+    for i := 0; i < len(poss); i++ {
+        pos := &poss[i]
+        if pos.Long {
+            if _, ok :=  eng.quoteCurrMarkets[pos.Market]; !ok {
+                continue // if not this market
+            }
+            posTotalVal += poss[i].Amount.Mul(poss[i].BasePrice, 8, true)
+        } else { // short
+            if _, ok :=  eng.baseCurrMarkets[pos.Market]; !ok {
+                continue // if not this market
+            }
+            posTotalVal += poss[i].Amount
+        }
+    }
+    if posTotalVal > totalBal {
+        return posTotalVal - totalBal
+    } else { return 0 }
+}
+
+func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
+                            totalBorrow godec64.UDec64) BorrowTask {
+    var totalCredits godec64.UDec64
+    for i := 0; i < len(credits); i++ {
+        totalCredits += credits[i].Amount
+    }
+    
     oblen := len(ob.Ask)
     
     var task BorrowTask
     if oblen == 0 { return task }
     if len(credits) == 0 { return task }
-    sort.Sort(CreditsSort(credits))
+    
+    now := time.Now()
+    var normCredits, toExpireCredits []Credit
+    for i := 0; i < len(credits); i++ {
+        credit := &credits[i]
+        startBeforeExpTime := credit.CreateTime.Add(
+                24*time.Hour*time.Duration(credit.Period) -
+                eng.config.AutoLoanFetchPeriod)
+        if !now.After(startBeforeExpTime) { // if normal
+            normCredits = append(normCredits, *credit)
+        } else {
+            toExpireCredits = append(toExpireCredits, *credit)
+        }
+    }
+    
+    sort.Sort(CreditsSort(normCredits))
     var obSumAmountRate float64 = 0
     var csSumAmountRate float64 = 0
     var obTotalAmount float64 = 0
@@ -212,15 +249,7 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit) BorrowTask
     obi := 0
     var obFilled godec64.UDec64 = 0
     
-    // find balance between orderbook average rate and credits average rate.
-    // find orderbook average rate starting from lowest orders to highest orders.
-    // find credits average rate starting from highest to lowest rate.
-    for csi := len(credits)-1 ;csi >= 0; csi-- {
-        csAmount := credits[csi].Amount
-        // map credit to orderbook offers.
-        csEntryAmount := csAmount.ToFloat64(8)
-        csAmountRate := csEntryAmount * credits[csi].Rate.ToFloat64(12)
-        
+    obFill := func(csAmount godec64.UDec64) (float64, bool) {
         var obAmountRate float64 = 0
         for ; obi < oblen && csAmount >= ob.Ask[obi].Amount - obFilled ; obi++ {
             obAmount := (ob.Ask[obi].Amount - obFilled).ToFloat64(8)
@@ -229,29 +258,41 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit) BorrowTask
             csAmount -= ob.Ask[obi].Amount - obFilled
             obFilled = 0
         }
-        if obi == oblen { break }
+        if obi == oblen { return obAmountRate, false }
         if csAmount < ob.Ask[obi].Amount - obFilled {
             obAmount := csAmount.ToFloat64(8)
             obAmountRate += obAmount * ob.Ask[obi].Rate.ToFloat64(12)
             obTotalAmount += obAmount
             obFilled += csAmount
         }
+        return obAmountRate, true
+    }
+    
+    // find balance between orderbook average rate and credits average rate.
+    // find orderbook average rate starting from lowest orders to highest orders.
+    // find credits average rate starting from highest to lowest rate.
+    for csi := len(normCredits)-1 ;csi >= 0; csi-- {
+        csAmount := normCredits[csi].Amount
+        // map credit to orderbook offers.
+        csEntryAmount := csAmount.ToFloat64(8)
+        csAmountRate := csEntryAmount * normCredits[csi].Rate.ToFloat64(12)
         
-        csAmount = credits[csi].Amount
+        obAmountRate, left := obFill(csAmount)
+        if !left { break }
         
         // check whether result is not worse than in highest credit loan
         var hcsAmountRate float64 = 0
-        hcsi := len(credits)-1
-        for ; hcsi >= 0 && csAmount >= credits[hcsi].Amount; hcsi-- {
-            hcsAmount := (credits[hcsi].Amount).ToFloat64(8)
-            hcsAmountRate += hcsAmount * credits[hcsi].Rate.ToFloat64(12)
+        hcsi := len(normCredits)-1
+        for ; hcsi >= 0 && csAmount >= normCredits[hcsi].Amount; hcsi-- {
+            hcsAmount := (normCredits[hcsi].Amount).ToFloat64(8)
+            hcsAmountRate += hcsAmount * normCredits[hcsi].Rate.ToFloat64(12)
         }
-        if hcsi >= 0 && csAmount < credits[hcsi].Amount {
+        if hcsi >= 0 && csAmount < normCredits[hcsi].Amount {
             hcsAmount := csAmount.ToFloat64(8)
-            hcsAmountRate += hcsAmount * credits[hcsi].Rate.ToFloat64(12)
+            hcsAmountRate += hcsAmount * normCredits[hcsi].Rate.ToFloat64(12)
         }
         
-        csAmount = credits[csi].Amount
+        csAmount = normCredits[csi].Amount
         
         if hcsAmountRate < obAmountRate { break }
         
@@ -260,9 +301,23 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit) BorrowTask
         csTotalAmount += csEntryAmount
         if obSumAmountRate / obTotalAmount <= (csSumAmountRate / csTotalAmount) *
                 (1.0 - eng.config.MinRateDifference) {
-            task.LoanIdsToClose = append(task.LoanIdsToClose, credits[csi].Id)
+            task.LoanIdsToClose = append(task.LoanIdsToClose, normCredits[csi].Id)
             task.TotalBorrow += csAmount
         } else { break }
+    }
+    
+    // to expire credits
+    for i := 0; i < len(toExpireCredits); i++ {
+        // map credit to orderbook offers.
+        if _, left := obFill(toExpireCredits[i].Amount); !left { break }
+        // if really expire in this loan fetch period,
+        // do not add to list of loans to close.
+        task.TotalBorrow += toExpireCredits[i].Amount
+    }
+    
+    // fill rest of not borrowed from total borrow
+    if totalBorrow > totalCredits {
+        obFill(totalBorrow - totalCredits)
     }
     
     return task
