@@ -79,6 +79,14 @@ func equalBorrowTask(a, b *BorrowTask) bool {
     return true
 }
 
+func sumTotalCredits(credits []Credit) godec64.UDec64 {
+    var totalCredits godec64.UDec64
+    for i := 0; i < len(credits); i++ {
+        totalCredits += credits[i].Amount
+    }
+    return totalCredits
+}
+
 func TestPrepareBorrowTask(t *testing.T) {
     eng := getTestEngine0()
     now := time.Date(2021, 9, 14, 15, 37, 11, 0, time.UTC)
@@ -95,7 +103,7 @@ func TestPrepareBorrowTask(t *testing.T) {
             OrderBookEntry{ 14, 2, 78800000000, 4125000000 },
         },
     }
-    var totalCredits godec64.UDec64
+    
     credits := []Credit{
         Credit{ Loan{ Id: 100, Currency: "UST", Side: -1,
                 CreateTime: now.Add(-24*time.Hour),
@@ -111,10 +119,9 @@ func TestPrepareBorrowTask(t *testing.T) {
                 CreateTime: now.Add(-22*time.Hour),
                 UpdateTime: now.Add(-22*time.Hour),
                 Amount: 141355000000, Status: "ACTIVE",
-                Rate: 8934000000, Period: 2 }, "ADAUST" } }
-    for i := 0; i < len(credits); i++ {
-        totalCredits += credits[i].Amount
+                Rate: 8934000000, Period: 2 }, "ADAUST" },
     }
+    totalCredits := sumTotalCredits(credits)
     resTask := eng.prepareBorrowTask(&ob, credits, totalCredits, now)
     expTask := BorrowTask{ 173810000000, []uint64{ 102, 100 } }
     if !equalBorrowTask(&expTask, &resTask) {
@@ -137,12 +144,99 @@ func TestPrepareBorrowTask(t *testing.T) {
                 CreateTime: now.Add(-22*time.Hour),
                 UpdateTime: now.Add(-22*time.Hour),
                 Amount: 141355000000, Status: "ACTIVE",
-                Rate: 8934000000, Period: 2 }, "ADAUST" } }
-    for i := 0; i < len(credits); i++ {
-        totalCredits += credits[i].Amount
+                Rate: 8934000000, Period: 2 }, "ADAUST" },
     }
+    totalCredits = sumTotalCredits(credits)
     resTask = eng.prepareBorrowTask(&ob, credits, totalCredits, now)
     expTask = BorrowTask{ 302577000000, []uint64{ 102, 100, 101 } }
+    if !equalBorrowTask(&expTask, &resTask) {
+        t.Errorf("BorrowTask mismatch: %v!=%v", expTask, resTask)
+    }
+    
+    // new orderbook
+    ob = OrderBook{
+        Bid: []OrderBookEntry{
+            OrderBookEntry{ 0, 2, 16000000000, 6611000000 },
+            OrderBookEntry{ 1, 2, 16000000000, 5221000000 },
+        },
+        Ask: []OrderBookEntry{
+            OrderBookEntry{ 10, 2, 16000000000, 3471000000 },
+            OrderBookEntry{ 11, 3, 20200000000, 3472000000 },
+            OrderBookEntry{ 12, 2, 14177000000, 3475000000 },
+            OrderBookEntry{ 13, 2, 15320000000, 3480000000 },
+            OrderBookEntry{ 14, 2, 27517000000, 3481000000 },
+            OrderBookEntry{ 15, 2, 10764000000, 3483000000 },
+            OrderBookEntry{ 16, 2, 17520000000, 3485000000 },
+        },
+    }
+    
+    credits = []Credit{
+        Credit{ Loan{ Id: 100, Currency: "UST", Side: -1,
+                CreateTime: now.Add(-24*time.Hour),
+                UpdateTime: now.Add(-24*time.Hour),
+                Amount: 73210000000, Status: "ACTIVE",
+                Rate: 6532000000, Period: 2 }, "BTCUST" },
+        Credit{ Loan{ Id: 101, Currency: "UST", Side: -1,
+                CreateTime: now.Add(-23*time.Hour),
+                UpdateTime: now.Add(-23*time.Hour),
+                Amount: 23120000000, Status: "ACTIVE",
+                Rate: 6621100000, Period: 2 }, "BTCUST" },
+        Credit{ Loan{ Id: 102, Currency: "UST", Side: -1,
+                CreateTime: now.Add(-22*time.Hour),
+                UpdateTime: now.Add(-22*time.Hour),
+                Amount: 6755000000, Status: "ACTIVE",
+                Rate: 5974200000, Period: 2 }, "ADAUST" },
+        Credit{ Loan{ Id: 103, Currency: "UST", Side: -1,
+                CreateTime: now.Add(-22*time.Hour),
+                UpdateTime: now.Add(-22*time.Hour),
+                Amount: 3341100000, Status: "ACTIVE",
+                Rate: 5975640000, Period: 2 }, "ADAUST" },
+        Credit{ Loan{ Id: 104, Currency: "UST", Side: -1,
+                CreateTime: now.Add(-22*time.Hour),
+                UpdateTime: now.Add(-22*time.Hour),
+                Amount: 2775210000, Status: "ACTIVE",
+                Rate: 5784211000, Period: 2 }, "ADAUST" },
+    }
+    
+    totalCredits = sumTotalCredits(credits)
+    resTask = eng.prepareBorrowTask(&ob, credits, totalCredits, now)
+    expTask = BorrowTask{ 109201310000, []uint64{ 101, 100, 103, 102, 104 } }
+    if !equalBorrowTask(&expTask, &resTask) {
+        t.Errorf("BorrowTask mismatch: %v!=%v", expTask, resTask)
+    }
+    
+    // if lower rate
+    credits = []Credit{
+        Credit{ Loan{ Id: 100, Currency: "UST", Side: -1,
+                CreateTime: now.Add(-24*time.Hour),
+                UpdateTime: now.Add(-24*time.Hour),
+                Amount: 73210000000, Status: "ACTIVE",
+                Rate: 4773420000, Period: 2 }, "BTCUST" },
+        Credit{ Loan{ Id: 101, Currency: "UST", Side: -1,
+                CreateTime: now.Add(-23*time.Hour),
+                UpdateTime: now.Add(-23*time.Hour),
+                Amount: 23120000000, Status: "ACTIVE",
+                Rate: 4556510000, Period: 2 }, "BTCUST" },
+        Credit{ Loan{ Id: 102, Currency: "UST", Side: -1,
+                CreateTime: now.Add(-22*time.Hour),
+                UpdateTime: now.Add(-22*time.Hour),
+                Amount: 6755000000, Status: "ACTIVE",
+                Rate: 754110000, Period: 2 }, "ADAUST" },
+        Credit{ Loan{ Id: 103, Currency: "UST", Side: -1,
+                CreateTime: now.Add(-22*time.Hour),
+                UpdateTime: now.Add(-22*time.Hour),
+                Amount: 3341100000, Status: "ACTIVE",
+                Rate: 123410000, Period: 2 }, "ADAUST" },
+        Credit{ Loan{ Id: 104, Currency: "UST", Side: -1,
+                CreateTime: now.Add(-22*time.Hour),
+                UpdateTime: now.Add(-22*time.Hour),
+                Amount: 2775210000, Status: "ACTIVE",
+                Rate: 340851000, Period: 2 }, "ADAUST" },
+    }
+    
+    totalCredits = sumTotalCredits(credits)
+    resTask = eng.prepareBorrowTask(&ob, credits, totalCredits, now)
+    expTask = BorrowTask{ 105860210000, []uint64{ 100, 101, 102, 104 } }
     if !equalBorrowTask(&expTask, &resTask) {
         t.Errorf("BorrowTask mismatch: %v!=%v", expTask, resTask)
     }

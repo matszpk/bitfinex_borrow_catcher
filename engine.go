@@ -252,18 +252,21 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
     
     obFill := func(csAmount godec64.UDec64) (float64, bool) {
         var obAmountRate float64 = 0
+        Logger.Info("dddx:", csAmount, ob.Ask[obi], obFilled)
         for ; obi < oblen && csAmount >= ob.Ask[obi].Amount - obFilled ; obi++ {
-            Logger.Info("dddy:", ob.Ask[obi])
+            Logger.Info("dddy:", csAmount, ob.Ask[obi], ob.Ask[obi].Amount - obFilled)
             obAmount := (ob.Ask[obi].Amount - obFilled).ToFloat64(8)
             obAmountRate += obAmount * ob.Ask[obi].Rate.ToFloat64(12)
             obTotalAmount += obAmount
             csAmount -= ob.Ask[obi].Amount - obFilled
             obFilled = 0
         }
+        Logger.Info("dddz:", csAmount, obFilled)
         if obi == oblen && csAmount != 0 {
             return obAmountRate, false
         }
         if obi != oblen && csAmount < ob.Ask[obi].Amount - obFilled {
+            Logger.Info("dddA:", csAmount, ob.Ask[obi], obFilled)
             obAmount := csAmount.ToFloat64(8)
             obAmountRate += obAmount * ob.Ask[obi].Rate.ToFloat64(12)
             obTotalAmount += obAmount
@@ -299,12 +302,14 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
         }
         
         csAmount = normCredits[csi].Amount
-        
+        Logger.Info("cccz:", hcsAmountRate, obAmountRate)
         if hcsAmountRate < obAmountRate { break }
         
         obSumAmountRate += obAmountRate
         csSumAmountRate += csAmountRate
         csTotalAmount += csEntryAmount
+        Logger.Info("cccA:", obSumAmountRate / obTotalAmount,
+                    csSumAmountRate / csTotalAmount)
         if obSumAmountRate / obTotalAmount <= (csSumAmountRate / csTotalAmount) *
                 (1.0 - eng.config.MinRateDifference) {
             task.LoanIdsToClose = append(task.LoanIdsToClose, normCredits[csi].Id)
