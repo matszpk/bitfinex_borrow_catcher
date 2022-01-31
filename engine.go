@@ -295,6 +295,7 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
         for ; hcsi >= 0 && csAmount >= normCredits[hcsi].Amount; hcsi-- {
             hcsAmount := (normCredits[hcsi].Amount).ToFloat64(8)
             hcsAmountRate += hcsAmount * normCredits[hcsi].Rate.ToFloat64(12)
+            csAmount -= normCredits[hcsi].Amount
         }
         if hcsi >= 0 && csAmount < normCredits[hcsi].Amount {
             hcsAmount := csAmount.ToFloat64(8)
