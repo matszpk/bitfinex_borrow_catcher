@@ -215,7 +215,7 @@ func (eng *Engine) calculateTotalBorrow(poss []Position, bals []Balance) godec64
 }
 
 func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
-                            totalBorrow godec64.UDec64) BorrowTask {
+                            totalBorrow godec64.UDec64, now time.Time) BorrowTask {
     var totalCredits godec64.UDec64
     for i := 0; i < len(credits); i++ {
         totalCredits += credits[i].Amount
@@ -227,14 +227,14 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
     if oblen == 0 { return task }
     if len(credits) == 0 { return task }
     
-    now := time.Now()
     var normCredits, toExpireCredits []Credit
     for i := 0; i < len(credits); i++ {
         credit := &credits[i]
-        startBeforeExpTime := credit.CreateTime.Add(
-                24*time.Hour*time.Duration(credit.Period) -
-                eng.config.AutoLoanFetchPeriod)
-        if !now.After(startBeforeExpTime) { // if normal
+        expireTime := credit.CreateTime.Add(24*time.Hour*time.Duration(credit.Period))
+        afterAutoLoanTime := now.Truncate(eng.config.AutoLoanFetchPeriod).
+                Add(eng.config.AutoLoanFetchShift)
+        
+        if !afterAutoLoanTime.After(expireTime) { // if normal
             normCredits = append(normCredits, *credit)
         } else {
             toExpireCredits = append(toExpireCredits, *credit)
@@ -248,17 +248,21 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
     var csTotalAmount float64 = 0
     obi := 0
     var obFilled godec64.UDec64 = 0
+    Logger.Info("ccc:", normCredits)
     
     obFill := func(csAmount godec64.UDec64) (float64, bool) {
         var obAmountRate float64 = 0
         for ; obi < oblen && csAmount >= ob.Ask[obi].Amount - obFilled ; obi++ {
+            Logger.Info("dddy:", ob.Ask[obi])
             obAmount := (ob.Ask[obi].Amount - obFilled).ToFloat64(8)
             obAmountRate += obAmount * ob.Ask[obi].Rate.ToFloat64(12)
             obTotalAmount += obAmount
             csAmount -= ob.Ask[obi].Amount - obFilled
             obFilled = 0
         }
-        if obi == oblen { return obAmountRate, false }
+        if obi == oblen && csAmount != 0 {
+            return obAmountRate, false
+        }
         if csAmount < ob.Ask[obi].Amount - obFilled {
             obAmount := csAmount.ToFloat64(8)
             obAmountRate += obAmount * ob.Ask[obi].Rate.ToFloat64(12)
@@ -273,12 +277,14 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
     // find credits average rate starting from highest to lowest rate.
     for csi := len(normCredits)-1 ;csi >= 0; csi-- {
         csAmount := normCredits[csi].Amount
+        Logger.Info("cccx:", normCredits[csi])
         // map credit to orderbook offers.
         csEntryAmount := csAmount.ToFloat64(8)
         csAmountRate := csEntryAmount * normCredits[csi].Rate.ToFloat64(12)
         
         obAmountRate, left := obFill(csAmount)
         if !left { break }
+        Logger.Info("cccy:", csAmountRate, obAmountRate)
         
         // check whether result is not worse than in highest credit loan
         var hcsAmountRate float64 = 0
