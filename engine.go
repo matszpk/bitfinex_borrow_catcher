@@ -263,7 +263,7 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
         if obi == oblen && csAmount != 0 {
             return obAmountRate, false
         }
-        if csAmount < ob.Ask[obi].Amount - obFilled {
+        if obi != oblen && csAmount < ob.Ask[obi].Amount - obFilled {
             obAmount := csAmount.ToFloat64(8)
             obAmountRate += obAmount * ob.Ask[obi].Rate.ToFloat64(12)
             obTotalAmount += obAmount
