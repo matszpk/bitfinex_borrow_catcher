@@ -289,20 +289,42 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
         if !left { break }
         Logger.Info("cccy:", csAmountRate, obAmountRate)
         
+        // check whether current rate is not lower than best rate in orderbook
+        csAmountLeft := csAmount
+        lowestObi := 0
+        var lowObAmountRate float64
+        for ; lowestObi < oblen && csAmountLeft >= ob.Ask[lowestObi].Amount; lowestObi++ {
+            obAmount := ob.Ask[lowestObi].Amount.ToFloat64(8)
+            lowObAmountRate += obAmount * ob.Ask[lowestObi].Rate.ToFloat64(12)
+            csAmountLeft -= ob.Ask[lowestObi].Amount
+        }
+        if lowestObi != oblen && csAmountLeft < ob.Ask[lowestObi].Amount {
+            obAmount := csAmountLeft.ToFloat64(8)
+            lowObAmountRate += obAmount * ob.Ask[lowestObi].Rate.ToFloat64(12)
+            csAmountLeft = 0
+        }
+        // if calculated
+        if csAmountLeft == 0 {
+            if csAmountRate < lowObAmountRate {
+                Logger.Info("Skip credit:", normCredits[csi], csAmountRate, lowObAmountRate)
+                break  // if credit rate is lower than lowest lowObAmountRate
+            }
+        }
+        
         // check whether result is not worse than in highest credit loan
         var hcsAmountRate float64 = 0
         hcsi := len(normCredits)-1
-        for ; hcsi >= 0 && csAmount >= normCredits[hcsi].Amount; hcsi-- {
+        csAmountLeft = csAmount
+        for ; hcsi >= 0 && csAmountLeft >= normCredits[hcsi].Amount; hcsi-- {
             hcsAmount := (normCredits[hcsi].Amount).ToFloat64(8)
             hcsAmountRate += hcsAmount * normCredits[hcsi].Rate.ToFloat64(12)
-            csAmount -= normCredits[hcsi].Amount
+            csAmountLeft -= normCredits[hcsi].Amount
         }
-        if hcsi >= 0 && csAmount < normCredits[hcsi].Amount {
-            hcsAmount := csAmount.ToFloat64(8)
+        if hcsi >= 0 && csAmountLeft < normCredits[hcsi].Amount {
+            hcsAmount := csAmountLeft.ToFloat64(8)
             hcsAmountRate += hcsAmount * normCredits[hcsi].Rate.ToFloat64(12)
         }
         
-        csAmount = normCredits[csi].Amount
         Logger.Info("cccz:", hcsAmountRate, obAmountRate)
         if hcsAmountRate < obAmountRate { break }
         
