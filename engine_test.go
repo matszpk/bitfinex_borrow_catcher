@@ -93,15 +93,15 @@ func TestPrepareBorrowTask(t *testing.T) {
     now := time.Date(2021, 9, 14, 15, 37, 11, 0, time.UTC)
     ob := OrderBook{
         Bid: []OrderBookEntry{
-            OrderBookEntry{ 0, 2, 16000000000, 6611000000 },
-            OrderBookEntry{ 1, 2, 16000000000, 5221000000 },
+            OrderBookEntry{ 2, 16000000000, 6611000000 },
+            OrderBookEntry{ 2, 16000000000, 5221000000 },
         },
         Ask: []OrderBookEntry{
-            OrderBookEntry{ 10, 2, 16000000000, 4111000000 },
-            OrderBookEntry{ 11, 3, 20200000000, 4112000000 },
-            OrderBookEntry{ 12, 2, 134177000000, 4115000000 },
-            OrderBookEntry{ 13, 2, 53400000000, 4118000000 },
-            OrderBookEntry{ 14, 2, 78800000000, 4125000000 },
+            OrderBookEntry{ 2, 16000000000, 4111000000 },
+            OrderBookEntry{ 3, 20200000000, 4112000000 },
+            OrderBookEntry{ 2, 134177000000, 4115000000 },
+            OrderBookEntry{ 2, 53400000000, 4118000000 },
+            OrderBookEntry{ 2, 78800000000, 4125000000 },
         },
     }
     
@@ -157,17 +157,17 @@ func TestPrepareBorrowTask(t *testing.T) {
     // new orderbook
     ob = OrderBook{
         Bid: []OrderBookEntry{
-            OrderBookEntry{ 0, 2, 16000000000, 6611000000 },
-            OrderBookEntry{ 1, 2, 16000000000, 5221000000 },
+            OrderBookEntry{ 2, 16000000000, 6611000000 },
+            OrderBookEntry{ 2, 16000000000, 5221000000 },
         },
         Ask: []OrderBookEntry{
-            OrderBookEntry{ 10, 2, 16000000000, 3471000000 },
-            OrderBookEntry{ 11, 3, 20200000000, 3472000000 },
-            OrderBookEntry{ 12, 2, 14177000000, 3475000000 },
-            OrderBookEntry{ 13, 2, 15320000000, 3480000000 },
-            OrderBookEntry{ 14, 2, 27517000000, 3481000000 },
-            OrderBookEntry{ 15, 2, 10764000000, 3483000000 },
-            OrderBookEntry{ 16, 2, 17520000000, 3485000000 },
+            OrderBookEntry{ 2, 16000000000, 3471000000 },
+            OrderBookEntry{ 3, 20200000000, 3472000000 },
+            OrderBookEntry{ 2, 14177000000, 3475000000 },
+            OrderBookEntry{ 2, 15320000000, 3480000000 },
+            OrderBookEntry{ 2, 27517000000, 3481000000 },
+            OrderBookEntry{ 2, 10764000000, 3483000000 },
+            OrderBookEntry{ 2, 17520000000, 3485000000 },
         },
     }
     
@@ -246,17 +246,17 @@ func TestPrepareBorrowTask(t *testing.T) {
     // new orderbook
     ob = OrderBook{
         Bid: []OrderBookEntry{
-            OrderBookEntry{ 0, 2, 16000000000, 6611000000 },
-            OrderBookEntry{ 1, 2, 16000000000, 5221000000 },
+            OrderBookEntry{ 2, 16000000000, 6611000000 },
+            OrderBookEntry{ 2, 16000000000, 5221000000 },
         },
         Ask: []OrderBookEntry{
-            OrderBookEntry{ 10, 2, 16000000000, 2471000000 },
-            OrderBookEntry{ 11, 3, 20200000000, 2472000000 },
-            OrderBookEntry{ 12, 2, 18548100000, 3475000000 },
-            OrderBookEntry{ 13, 2, 19044000000, 5782100000 },
-            OrderBookEntry{ 14, 2, 21678000000, 7220300000 },
-            OrderBookEntry{ 15, 2, 20114000000, 8221000000 },
-            OrderBookEntry{ 16, 2, 12775000000, 8411100000 },
+            OrderBookEntry{ 2, 16000000000, 2471000000 },
+            OrderBookEntry{ 3, 20200000000, 2472000000 },
+            OrderBookEntry{ 2, 18548100000, 3475000000 },
+            OrderBookEntry{ 2, 19044000000, 5782100000 },
+            OrderBookEntry{ 2, 21678000000, 7220300000 },
+            OrderBookEntry{ 2, 20114000000, 8221000000 },
+            OrderBookEntry{ 2, 12775000000, 8411100000 },
         },
     }
     
@@ -397,14 +397,14 @@ func TestPrepareBorrowTask(t *testing.T) {
     // if orderbook is too short
     ob = OrderBook{
         Bid: []OrderBookEntry{
-            OrderBookEntry{ 0, 2, 16000000000, 6611000000 },
-            OrderBookEntry{ 1, 2, 16000000000, 5221000000 },
+            OrderBookEntry{ 2, 16000000000, 6611000000 },
+            OrderBookEntry{ 2, 16000000000, 5221000000 },
         },
         Ask: []OrderBookEntry{
-            OrderBookEntry{ 10, 2, 16000000000, 2471000000 },
-            OrderBookEntry{ 11, 3, 20200000000, 2472000000 },
-            OrderBookEntry{ 12, 2, 18548100000, 3475000000 },
-            OrderBookEntry{ 13, 2, 19044000000, 5782100000 },
+            OrderBookEntry{ 2, 16000000000, 2471000000 },
+            OrderBookEntry{ 3, 20200000000, 2472000000 },
+            OrderBookEntry{ 2, 18548100000, 3475000000 },
+            OrderBookEntry{ 2, 19044000000, 5782100000 },
         },
     }
     resTask = eng.prepareBorrowTask(&ob, credits, totalCredits, now)
@@ -415,13 +415,13 @@ func TestPrepareBorrowTask(t *testing.T) {
     // if orderbook is too short 2
     ob = OrderBook{
         Bid: []OrderBookEntry{
-            OrderBookEntry{ 0, 2, 16000000000, 6611000000 },
-            OrderBookEntry{ 1, 2, 16000000000, 5221000000 },
+            OrderBookEntry{ 2, 16000000000, 6611000000 },
+            OrderBookEntry{ 2, 16000000000, 5221000000 },
         },
         Ask: []OrderBookEntry{
-            OrderBookEntry{ 10, 2, 16000000000, 2471000000 },
-            OrderBookEntry{ 11, 3, 20200000000, 2472000000 },
-            OrderBookEntry{ 12, 2, 18548100000, 3475000000 },
+            OrderBookEntry{ 2, 16000000000, 2471000000 },
+            OrderBookEntry{ 3, 20200000000, 2472000000 },
+            OrderBookEntry{ 2, 18548100000, 3475000000 },
         },
     }
     resTask = eng.prepareBorrowTask(&ob, credits, totalCredits, now)
@@ -442,15 +442,15 @@ func TestPrepareBorrowTask(t *testing.T) {
     // and if orderbook too short
     ob = OrderBook{
         Bid: []OrderBookEntry{
-            OrderBookEntry{ 0, 2, 16000000000, 6611000000 },
-            OrderBookEntry{ 1, 2, 16000000000, 5221000000 },
+            OrderBookEntry{ 2, 16000000000, 6611000000 },
+            OrderBookEntry{ 2, 16000000000, 5221000000 },
         },
         Ask: []OrderBookEntry{
-            OrderBookEntry{ 10, 2, 16000000000, 2471000000 },
-            OrderBookEntry{ 11, 3, 20200000000, 2472000000 },
-            OrderBookEntry{ 12, 2, 18548100000, 3475000000 },
-            OrderBookEntry{ 13, 2, 19044000000, 5782100000 },
-            OrderBookEntry{ 14, 2, 8330000000, 7220300000 },
+            OrderBookEntry{ 2, 16000000000, 2471000000 },
+            OrderBookEntry{ 3, 20200000000, 2472000000 },
+            OrderBookEntry{ 2, 18548100000, 3475000000 },
+            OrderBookEntry{ 2, 19044000000, 5782100000 },
+            OrderBookEntry{ 2, 8330000000, 7220300000 },
         },
     }
     resTask = eng.prepareBorrowTask(&ob, credits, totalCredits, now)
