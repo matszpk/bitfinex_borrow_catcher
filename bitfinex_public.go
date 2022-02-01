@@ -42,6 +42,8 @@ var (
     bitfinexApiTicker = []byte("/v2/ticker/t")
 )
 
+// About rate: interest rate in percent is multiplied by 10000000000
+
 type Side uint8
 
 // Side of order

@@ -356,4 +356,6 @@ func TestPrepareBorrowTask(t *testing.T) {
     if !equalBorrowTask(&expTask, &resTask) {
         t.Errorf("BorrowTask mismatch: %v!=%v", expTask, resTask)
     }
+    
+    // include total borrow rest
 }
