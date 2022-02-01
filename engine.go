@@ -257,7 +257,9 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
     
     obFill := func(csAmount godec64.UDec64) (float64, bool) {
         var obAmountRate float64 = 0
-        Logger.Info("dddx:", csAmount, ob.Ask[obi], obFilled)
+        if obi < oblen {
+            Logger.Info("dddx:", csAmount, ob.Ask[obi], obFilled)
+        }
         for ; obi < oblen && csAmount >= ob.Ask[obi].Amount - obFilled ; obi++ {
             Logger.Info("dddy:", csAmount, ob.Ask[obi], ob.Ask[obi].Amount - obFilled)
             obAmount := (ob.Ask[obi].Amount - obFilled).ToFloat64(8)
