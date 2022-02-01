@@ -338,16 +338,21 @@ func TestPrepareBorrowTask(t *testing.T) {
                 CreateTime: now.Add(-48*time.Hour+3*time.Minute),
                 UpdateTime: now.Add(-48*time.Hour+3*time.Minute),
                 Amount: 15676200000, Status: "ACTIVE",
-                Rate: 122110000, Period: 2 }, "ADAUST" },
+                Rate: 122110000, Period: 2 }, "ADAUST" },   // to expire
         Credit{ Loan{ Id: 103, Currency: "UST", Side: -1,
                 CreateTime: now.Add(-22*time.Hour),
                 UpdateTime: now.Add(-22*time.Hour),
                 Amount: 25621200000, Status: "ACTIVE",
                 Rate: 8932140000, Period: 2 }, "ADAUST" },
+        Credit{ Loan{ Id: 104, Currency: "UST", Side: -1,
+                CreateTime: now.Add(-48*time.Hour+3*time.Minute),
+                UpdateTime: now.Add(-48*time.Hour+3*time.Minute),
+                Amount: 9511100000, Status: "ACTIVE",
+                Rate: 100110000, Period: 2 }, "ADAUST" },   // to expire
     }
     totalCredits = sumTotalCredits(credits)
     resTask = eng.prepareBorrowTask(&ob, credits, totalCredits, now)
-    expTask = BorrowTask{ 72394756000, []uint64{ 103, 101, 100 } }
+    expTask = BorrowTask{ 81905856000, []uint64{ 103, 101, 100 } }
     if !equalBorrowTask(&expTask, &resTask) {
         t.Errorf("BorrowTask mismatch: %v!=%v", expTask, resTask)
     }
