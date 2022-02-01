@@ -37,7 +37,7 @@ func (stmp *OrderBook) applyDiff(sdest *OrderBook, diff *OrderBookEntryDiff) {
         stmpBidLen := len(stmp.Bid)
         sdest.Bid = sdest.Bid[:0]
         
-        toDelete := diff.Obe.Rate == 0
+        toDelete := diff.Obe.Count == 0
         i, j := 0, stmpBidLen
         if !toDelete {
             for i<j {
@@ -91,7 +91,7 @@ func (stmp *OrderBook) applyDiff(sdest *OrderBook, diff *OrderBookEntryDiff) {
         sdest.Ask = sdest.Ask[:0]
         
         i, j := 0, stmpAskLen
-        toDelete := diff.Obe.Rate == 0
+        toDelete := diff.Obe.Count == 0
         if !toDelete {
             for i<j {
                 h := (i+j)>>1

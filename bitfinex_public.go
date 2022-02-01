@@ -71,6 +71,7 @@ type OrderBookEntry struct {
     Period uint32
     Amount godec64.UDec64
     Rate godec64.UDec64
+    Count uint32
 }
 
 func (obe *OrderBookEntry) Cmp(obe2 *OrderBookEntry) int {
@@ -281,6 +282,7 @@ func bitfinexGetOrderBookEntryFromJson(v *fastjson.Value, obe *OrderBookEntry) b
     obe.Rate = FastjsonGetUDec64(arr[0], 12)
     var neg bool
     obe.Amount, neg = FastjsonGetUDec64Signed(arr[3], 8)
+    obe.Count = FastjsonGetUInt32(arr[2])
     return neg
 }
 
