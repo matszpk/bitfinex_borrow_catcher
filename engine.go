@@ -255,7 +255,7 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
     Logger.Info("ccc:", normCredits)
     Logger.Info("ccd:", toExpireCredits)
     
-    obFill := func(csAmount godec64.UDec64) (float64, bool) {
+    obFill := func(csAmount godec64.UDec64) (godec64.UDec64, float64, bool) {
         var obAmountRate float64 = 0
         if obi < oblen {
             Logger.Info("dddx:", csAmount, ob.Ask[obi], obFilled)
@@ -270,7 +270,7 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
         }
         Logger.Info("dddz:", csAmount, obFilled)
         if obi == oblen && csAmount != 0 {
-            return obAmountRate, false
+            return csAmount, obAmountRate, false
         }
         if obi != oblen && csAmount < ob.Ask[obi].Amount - obFilled {
             Logger.Info("dddA:", csAmount, ob.Ask[obi], obFilled)
@@ -278,8 +278,9 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
             obAmountRate += obAmount * ob.Ask[obi].Rate.ToFloat64(12)
             obTotalAmount += obAmount
             obFilled += csAmount
+            csAmount = 0
         }
-        return obAmountRate, true
+        return csAmount, obAmountRate, true
     }
     
     // find balance between orderbook average rate and credits average rate.
@@ -292,7 +293,7 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
         csEntryAmount := csAmount.ToFloat64(8)
         csAmountRate := csEntryAmount * normCredits[csi].Rate.ToFloat64(12)
         
-        obAmountRate, left := obFill(csAmount)
+        _, obAmountRate, left := obFill(csAmount)
         if !left { break }
         Logger.Info("cccy:", csAmountRate, obAmountRate)
         
@@ -350,15 +351,18 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
     // to expire credits
     for i := 0; i < len(toExpireCredits); i++ {
         // map credit to orderbook offers.
-        if _, left := obFill(toExpireCredits[i].Amount); !left { break }
+        if _, _, left := obFill(toExpireCredits[i].Amount); !left { break }
         // if really expire in this loan fetch period,
         // do not add to list of loans to close.
         task.TotalBorrow += toExpireCredits[i].Amount
     }
     
     // fill rest of not borrowed from total borrow
+    Logger.Info("ttot:", totalBorrow, totalCredits)
     if totalBorrow > totalCredits {
-        obFill(totalBorrow - totalCredits)
+        rest := totalBorrow - totalCredits
+        amountLeft, _, _:= obFill(rest)
+        task.TotalBorrow += rest - amountLeft
     }
     
     return task

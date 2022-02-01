@@ -357,6 +357,8 @@ func TestPrepareBorrowTask(t *testing.T) {
         t.Errorf("BorrowTask mismatch: %v!=%v", expTask, resTask)
     }
     
+    oldCredits := credits
+    oldOb := ob
     // if orderbook is too short
     ob = OrderBook{
         Bid: []OrderBookEntry{
@@ -389,6 +391,35 @@ func TestPrepareBorrowTask(t *testing.T) {
     }
     resTask = eng.prepareBorrowTask(&ob, credits, totalCredits, now)
     expTask = BorrowTask{ 37976400000, []uint64{ 103, 101 } }
+    if !equalBorrowTask(&expTask, &resTask) {
+        t.Errorf("BorrowTask mismatch: %v!=%v", expTask, resTask)
+    }
+    
+    // include total borrow rests
+    ob = oldOb
+    credits = oldCredits
+    totalCredits = sumTotalCredits(credits) + 221344000
+    resTask = eng.prepareBorrowTask(&ob, credits, totalCredits, now)
+    expTask = BorrowTask{ 82127200000, []uint64{ 103, 101, 100 } }
+    if !equalBorrowTask(&expTask, &resTask) {
+        t.Errorf("BorrowTask mismatch: %v!=%v", expTask, resTask)
+    }
+    // and if orderbook too short
+    ob = OrderBook{
+        Bid: []OrderBookEntry{
+            OrderBookEntry{ 0, 2, 16000000000, 6611000000 },
+            OrderBookEntry{ 1, 2, 16000000000, 5221000000 },
+        },
+        Ask: []OrderBookEntry{
+            OrderBookEntry{ 10, 2, 16000000000, 2471000000 },
+            OrderBookEntry{ 11, 3, 20200000000, 2472000000 },
+            OrderBookEntry{ 12, 2, 18548100000, 3475000000 },
+            OrderBookEntry{ 13, 2, 19044000000, 5782100000 },
+            OrderBookEntry{ 14, 2, 8330000000, 7220300000 },
+        },
+    }
+    resTask = eng.prepareBorrowTask(&ob, credits, totalCredits, now)
+    expTask = BorrowTask{ 82122100000, []uint64{ 103, 101, 100 } }
     if !equalBorrowTask(&expTask, &resTask) {
         t.Errorf("BorrowTask mismatch: %v!=%v", expTask, resTask)
     }
