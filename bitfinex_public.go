@@ -68,7 +68,6 @@ type Trade struct {
 }
 
 type OrderBookEntry struct {
-    Id uint64
     Period uint32
     Amount godec64.UDec64
     Rate godec64.UDec64
@@ -77,11 +76,11 @@ type OrderBookEntry struct {
 func (obe *OrderBookEntry) Cmp(obe2 *OrderBookEntry) int {
     if obe.Rate < obe2.Rate { return -1
     } else if obe.Rate > obe2.Rate { return 1 }
-    if obe.Id < obe2.Id {
+    /*if obe.Id < obe2.Id {
         return -1
     } else if obe.Id > obe2.Id {
         return 1
-    }
+    }*/
     return 0
 }
 
@@ -278,9 +277,8 @@ func bitfinexGetOrderBookEntryFromJson(v *fastjson.Value, obe *OrderBookEntry) b
     if len(arr) < 3 {
         panic("Wrong json body")
     }
-    obe.Id = FastjsonGetUInt64(arr[0])
     obe.Period = FastjsonGetUInt32(arr[1])
-    obe.Rate = FastjsonGetUDec64(arr[2], 12)
+    obe.Rate = FastjsonGetUDec64(arr[0], 12)
     var neg bool
     obe.Amount, neg = FastjsonGetUDec64Signed(arr[3], 8)
     return neg
@@ -310,7 +308,7 @@ func (drv *BitfinexPublic) GetOrderBook(currency string, ob *OrderBook) {
     apiUrl := make([]byte, 0, 60)
     apiUrl = append(apiUrl, bitfinexApiOrderBook...)
     apiUrl = append(apiUrl, currency...)
-    apiUrl = append(apiUrl, "/R0?len=25"...)
+    apiUrl = append(apiUrl, "/R0?len=100"...)
     
     var rh RequestHandle
     defer rh.Release()

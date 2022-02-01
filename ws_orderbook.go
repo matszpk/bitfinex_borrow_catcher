@@ -50,7 +50,7 @@ func (stmp *OrderBook) applyDiff(sdest *OrderBook, diff *OrderBookEntryDiff) {
             }
         } else {
             for i=0; i < stmpBidLen; i++ {
-                if ett[i].Id == diff.Obe.Id {
+                if ett[i].Rate == diff.Obe.Rate {
                     break
                 }
             }
@@ -103,7 +103,7 @@ func (stmp *OrderBook) applyDiff(sdest *OrderBook, diff *OrderBookEntryDiff) {
             }
         } else {
             for i=0; i < stmpAskLen; i++ {
-                if ett[i].Id == diff.Obe.Id {
+                if ett[i].Rate == diff.Obe.Rate {
                     break
                 }
             }
