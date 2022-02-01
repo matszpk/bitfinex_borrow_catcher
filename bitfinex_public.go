@@ -308,6 +308,19 @@ func (drv *BitfinexPublic) GetOrderBook(currency string, ob *OrderBook) {
     apiUrl := make([]byte, 0, 60)
     apiUrl = append(apiUrl, bitfinexApiOrderBook...)
     apiUrl = append(apiUrl, currency...)
+    apiUrl = append(apiUrl, "/R0?len=25"...)
+    
+    var rh RequestHandle
+    defer rh.Release()
+    v, sc := rh.HandleHttpGetJson(&drv.httpClient, bitfinexPubApiHost, apiUrl, nil)
+    if sc >= 400 { bitfinexPanic("Can't get orderbook", v, sc) }
+    bitfinexGetOrderBookFromJson(v, ob)
+}
+
+func (drv *BitfinexPublic) GetMaxOrderBook(currency string, ob *OrderBook) {
+    apiUrl := make([]byte, 0, 60)
+    apiUrl = append(apiUrl, bitfinexApiOrderBook...)
+    apiUrl = append(apiUrl, currency...)
     apiUrl = append(apiUrl, "/R0?len=100"...)
     
     var rh RequestHandle
