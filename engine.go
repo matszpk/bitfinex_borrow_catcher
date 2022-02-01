@@ -27,7 +27,6 @@ import (
     "io/ioutil"
     "os"
     "sort"
-    "sync"
     "time"
     "github.com/valyala/fastjson"
     "github.com/matszpk/godec64"
@@ -109,22 +108,12 @@ func (config *Config) Load(filename string) {
 type BorrowTask struct {
     TotalBorrow godec64.UDec64
     LoanIdsToClose []uint64
+    Rate godec64.UDec64
 }
 
-/* Engine stats */
-
-type LastStatsPeriod struct {
-    t time.Duration
-    Min godec64.UDec64
-    Avg godec64.UDec64
-    Max godec64.UDec64
-}
-
-type EngineStats struct {
-    candle []Candle
-    min10Stats LastStatsPeriod
-    min30Stats LastStatsPeriod
-    hourStats LastStatsPeriod
+func (bt *BorrowTask) Join(next *BorrowTask) {
+    bt.TotalBorrow += next.TotalBorrow
+    bt.LoanIdsToClose = append(bt.LoanIdsToClose, next.LoanIdsToClose...)
 }
 
 /* Engine stuff */
@@ -136,15 +125,17 @@ type Engine struct {
     config *Config
     df *DataFetcher
     bpriv *BitfinexPrivate
-    stats EngineStats
-    mutex sync.Mutex
+    obCh chan *OrderBook
+    trCh chan *Trade
 }
 
 func NewEngine(config *Config, df *DataFetcher, bpriv *BitfinexPrivate) *Engine {
     return &Engine{ stopCh: make(chan struct{}),
                 baseCurrMarkets: make(map[string]bool),
                 quoteCurrMarkets: make(map[string]bool),
-                config: config, df: df, bpriv: bpriv }
+                config: config, df: df, bpriv: bpriv,
+                obCh: make(chan *OrderBook),
+                trCh: make(chan *Trade) }
 }
 
 func (eng *Engine) PrepareMarkets() {
@@ -169,6 +160,8 @@ func (eng *Engine) Stop() {
     eng.stopCh <- struct{}{}
     eng.df.SetOrderBookHandler(nil)
     eng.df.SetLastTradeHandler(nil)
+    close(eng.obCh)
+    close(eng.trCh)
 }
 
 type CreditsSort []Credit
@@ -260,16 +253,18 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
             obTotalAmount += obAmount
             csAmount -= ob.Ask[obi].Amount - obFilled
             obFilled = 0
+            task.Rate = ob.Ask[obi].Rate
         }
         if obi == oblen && csAmount != 0 {
             return csAmount, obAmountRate, false
         }
-        if obi != oblen && csAmount < ob.Ask[obi].Amount - obFilled {
+        if obi != oblen && csAmount != 0 && csAmount < ob.Ask[obi].Amount - obFilled {
             obAmount := csAmount.ToFloat64(8)
             obAmountRate += obAmount * ob.Ask[obi].Rate.ToFloat64(12)
             obTotalAmount += obAmount
             obFilled += csAmount
             csAmount = 0
+            task.Rate = ob.Ask[obi].Rate
         }
         return csAmount, obAmountRate, true
     }
@@ -348,20 +343,42 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
         amountLeft, _, _:= obFill(rest)
         task.TotalBorrow += rest - amountLeft
     }
-    
     return task
 }
 
 func (eng *Engine) checkOrderBook(ob *OrderBook) {
-    if len(ob.Ask)==0 {
-        return // no offers
-    }
+    eng.obCh <- ob
 }
 
 func (eng *Engine) checkLastTrade(tr *Trade) {
+    eng.trCh <- tr
+}
+
+func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
+    for {
+        select {
+            case <-eng.obCh:
+            case <-eng.trCh:
+            case <-eng.stopCh:
+                return false
+        }
+    }
+    return true
 }
 
 func (eng *Engine) mainRoutine() {
+    now := time.Now()
+    alPeriodTime := now.Truncate(eng.config.AutoLoanFetchPeriod).
+                Add(eng.config.AutoLoanFetchShift)
+    if alPeriodTime.After(now) { // go to back
+        alPeriodTime = alPeriodTime.Add(-eng.config.AutoLoanFetchPeriod)
+    }
+    
+    // main loop
+    for {
+        if !eng.handleAutoLoanPeriod(alPeriodTime) { break }
+        alPeriodTime = alPeriodTime.Add(eng.config.AutoLoanFetchPeriod)
+    }
     /*ticker := time.NewTicker(engCheckStatusPeriod)
     defer ticker.Stop()
     
