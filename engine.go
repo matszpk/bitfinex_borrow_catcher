@@ -233,7 +233,11 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
         expireTime := credit.CreateTime.Add(24*time.Hour*time.Duration(credit.Period))
         afterAutoLoanTime := now.Truncate(eng.config.AutoLoanFetchPeriod).
                 Add(eng.config.AutoLoanFetchShift)
-        
+        if afterAutoLoanTime.Before(now) {
+            // if still before now
+            afterAutoLoanTime = afterAutoLoanTime.Add(eng.config.AutoLoanFetchPeriod)
+        }
+        Logger.Info("cctime:", expireTime, afterAutoLoanTime)
         if !afterAutoLoanTime.After(expireTime) { // if normal
             normCredits = append(normCredits, *credit)
         } else {
@@ -249,6 +253,7 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
     obi := 0
     var obFilled godec64.UDec64 = 0
     Logger.Info("ccc:", normCredits)
+    Logger.Info("ccd:", toExpireCredits)
     
     obFill := func(csAmount godec64.UDec64) (float64, bool) {
         var obAmountRate float64 = 0
