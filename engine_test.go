@@ -357,6 +357,40 @@ func TestPrepareBorrowTask(t *testing.T) {
         t.Errorf("BorrowTask mismatch: %v!=%v", expTask, resTask)
     }
     
+    credits = []Credit{
+        Credit{ Loan{ Id: 100, Currency: "UST", Side: -1,
+                CreateTime: now.Add(-24*time.Hour),
+                UpdateTime: now.Add(-24*time.Hour),
+                Amount: 18742156000, Status: "ACTIVE",
+                Rate: 6532000000, Period: 2 }, "BTCUST" },
+        Credit{ Loan{ Id: 101, Currency: "UST", Side: -1,
+                CreateTime: now.Add(-23*time.Hour),
+                UpdateTime: now.Add(-23*time.Hour),
+                Amount: 12355200000, Status: "ACTIVE",
+                Rate: 7834920000, Period: 2 }, "BTCUST" },
+        Credit{ Loan{ Id: 102, Currency: "UST", Side: -1,
+                CreateTime: now.Add(-48*time.Hour+1*time.Minute),
+                UpdateTime: now.Add(-48*time.Hour+1*time.Minute),
+                Amount: 15676200000, Status: "ACTIVE",
+                Rate: 122110000, Period: 2 }, "ADAUST" },   // to expire
+        Credit{ Loan{ Id: 103, Currency: "UST", Side: -1,
+                CreateTime: now.Add(-22*time.Hour),
+                UpdateTime: now.Add(-22*time.Hour),
+                Amount: 25621200000, Status: "ACTIVE",
+                Rate: 8932140000, Period: 2 }, "ADAUST" },
+        Credit{ Loan{ Id: 104, Currency: "UST", Side: -1,
+                CreateTime: now.Add(-48*time.Hour+7*time.Minute),
+                UpdateTime: now.Add(-48*time.Hour+7*time.Minute),
+                Amount: 9511100000, Status: "ACTIVE",
+                Rate: 100110000, Period: 2 }, "ADAUST" },   // to expire
+    }
+    totalCredits = sumTotalCredits(credits)
+    resTask = eng.prepareBorrowTask(&ob, credits, totalCredits, now)
+    expTask = BorrowTask{ 81905856000, []uint64{ 103, 101, 100 } }
+    if !equalBorrowTask(&expTask, &resTask) {
+        t.Errorf("BorrowTask mismatch: %v!=%v", expTask, resTask)
+    }
+    
     oldCredits := credits
     oldOb := ob
     // if orderbook is too short
