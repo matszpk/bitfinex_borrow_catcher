@@ -428,6 +428,9 @@ func (eng *Engine) makeBorrowTask(t time.Time) {
     var ob OrderBook
     eng.df.GetPublic().GetMaxOrderBook(eng.config.Currency, &ob)
     bt := eng.prepareBorrowTask(&ob, credits, totalBorrow, t)
+    if bt.TotalBorrow.Mul(eng.df.GetUSDPrice(), 8, true) < eng.config.MinOrderAmount {
+        return // do nothing if less than min order amount
+    }
     eng.doBorrowTask(&bt)
 }
 
