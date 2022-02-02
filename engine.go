@@ -459,6 +459,19 @@ func (eng *Engine) makeBorrowTaskSafe(t time.Time) {
     eng.makeBorrowTask(t)
 }
 
+func (eng *Engine) printCurrentFundingSummary() {
+    credits := eng.bpriv.GetCredits(eng.config.Currency)
+    var amountRateSum, amountSum float64 = 0, 0
+    for i := 0; i < len(credits); i++ {
+        amount := credits[i].Amount.ToFloat64(8)
+        rate := credits[i].Rate.ToFloat64(12)
+        amountRateSum += amount*rate;
+        amountSum += amount
+    }
+    Logger.Info("Current funding rate: ", amountRateSum / amountSum,
+                ", total: ", amountSum)
+}
+
 // return true if auto loan period passed, otherwise if engine stopped.
 func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
     alDur := eng.config.AutoLoanFetchEndShift - eng.config.AutoLoanFetchShift
@@ -470,6 +483,7 @@ func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
     defer taskTimer.Stop()
     
     eng.doCloseUnusedFundingsSafe()
+    eng.printCurrentFundingSummary()
     
     btDone := false
     var lastOb *OrderBook
