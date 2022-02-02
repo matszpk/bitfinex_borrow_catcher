@@ -237,7 +237,6 @@ func (drv *BitfinexRTPublic) handleChannelMessage(chType wsChannelType,
                 // otherwise is single difference
                 var diff OrderBookEntryDiff
                 bitfinexGetOrderBookEntryDiffFromJson(arr[1], &diff)
-                Logger.Info("wsdiff:", diff)
                 rtOBH := drv.getDiffOrderBookHandle(key)
                 if rtOBH!=nil {
                     rtOBH.pushDiff(&diff)

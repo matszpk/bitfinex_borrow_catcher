@@ -24,6 +24,8 @@ package main
 
 import (
     "bytes"
+    "crypto/rand"
+    "io"
     "io/ioutil"
     "os"
     "sort"
@@ -31,6 +33,19 @@ import (
     "github.com/valyala/fastjson"
     "github.com/matszpk/godec64"
 )
+
+func getRandom(n int64) int64 {
+    var b [8]byte
+    if _, err := io.ReadFull(rand.Reader, b[:]); err == nil {
+        v := int64(b[0]) + (int64(b[1])<<8) + (int64(b[2])<<16) + (int64(b[3])<<24) +
+            (int64(b[4])<<32) + (int64(b[5])<<40) + (int64(b[6])<<48) +
+            (int64(b[7]&0x7f)<<56)
+        return v % n
+    } else {
+        ErrorPanic("Can't get random number", err)
+    }
+    return 0
+}
 
 /* Config stuff */
 
@@ -126,7 +141,6 @@ type Engine struct {
     df *DataFetcher
     bpriv *BitfinexPrivate
     obCh chan *OrderBook
-    trCh chan *Trade
 }
 
 func NewEngine(config *Config, df *DataFetcher, bpriv *BitfinexPrivate) *Engine {
@@ -134,8 +148,7 @@ func NewEngine(config *Config, df *DataFetcher, bpriv *BitfinexPrivate) *Engine 
                 baseCurrMarkets: make(map[string]bool),
                 quoteCurrMarkets: make(map[string]bool),
                 config: config, df: df, bpriv: bpriv,
-                obCh: make(chan *OrderBook),
-                trCh: make(chan *Trade) }
+                obCh: make(chan *OrderBook) }
 }
 
 func (eng *Engine) PrepareMarkets() {
@@ -152,16 +165,13 @@ func (eng *Engine) PrepareMarkets() {
 
 func (eng *Engine) Start() {
     eng.df.SetOrderBookHandler(eng.checkOrderBook)
-    eng.df.SetLastTradeHandler(eng.checkLastTrade)
     go eng.mainRoutine()
 }
 
 func (eng *Engine) Stop() {
     eng.stopCh <- struct{}{}
     eng.df.SetOrderBookHandler(nil)
-    eng.df.SetLastTradeHandler(nil)
     close(eng.obCh)
-    close(eng.trCh)
 }
 
 type CreditsSort []Credit
@@ -350,15 +360,97 @@ func (eng *Engine) checkOrderBook(ob *OrderBook) {
     eng.obCh <- ob
 }
 
-func (eng *Engine) checkLastTrade(tr *Trade) {
-    eng.trCh <- tr
+func (eng *Engine) doBorrowTask(bt *BorrowTask) bool {
+    var opr OpResult
+    eng.bpriv.SubmitBidOrder(eng.config.Currency, bt.TotalBorrow,
+                            bt.Rate.Mul(1100000000000, 12, true), 2, &opr)
+    if !opr.Success {
+        Logger.Error("doBorrowTask SubmitBidOrder failed:", opr.Message)
+        return false
+    }
+    time.Sleep(2*time.Second)
+    // check whether is fully filled
+    orders := eng.bpriv.GetActiveOrders(eng.config.Currency)
+    oidx := 0
+    for ; oidx < len(orders); oidx++ {
+        if opr.Order.Id == orders[oidx].Id { break }
+    }
+    if oidx != len(orders) {  // found and then not fully filled
+        time.Sleep(10*time.Second) // for some time
+        // and cancel
+        oid := opr.Order.Id
+        eng.bpriv.CancelOrder(oid, &opr)
+    } // if fully filled
+    
+    // now close fundings
+    for _, loanId := range bt.LoanIdsToClose {
+        var op2r Op2Result
+        eng.bpriv.CloseFunding(loanId, &op2r)
+        if !op2r.Success {
+            Logger.Error("doBorrowTask CloseFunding failed:", op2r.Message)
+            return false
+        }
+    }
+    return true
 }
 
+func (eng *Engine) doCloseUnusedFundings() bool {
+    loans := eng.bpriv.GetLoans(eng.config.Currency)
+    for i := 0; i < len(loans); i++ {
+        var op2r Op2Result
+        eng.bpriv.CloseFunding(loans[i].Id, &op2r)
+        if !op2r.Success {
+            Logger.Error("doCloseUnusedFundings CloseFunding failed:", op2r.Message)
+            return false
+        }
+    }
+    return true
+}
+
+func (eng *Engine) makeBorrowTask(t time.Time) {
+    credits := eng.bpriv.GetCredits(eng.config.Currency)
+    bals := eng.bpriv.GetMarginBalances()
+    poss := eng.bpriv.GetPositions()
+    totalBorrow := eng.calculateTotalBorrow(poss, bals)
+    var ob OrderBook
+    eng.df.GetPublic().GetMaxOrderBook(eng.config.Currency, &ob)
+    bt := eng.prepareBorrowTask(&ob, credits, totalBorrow, t)
+    eng.doBorrowTask(&bt)
+}
+
+// return true if auto loan period passed, otherwise if engine stopped.
 func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
+    alDur := eng.config.AutoLoanFetchEndShift - eng.config.AutoLoanFetchShift
+    if alDur < 0 { alDur =- alDur }
+    alEndTimer := time.NewTimer(alPeriodTime.Add(alDur).Sub(time.Now()))
+    defer alEndTimer.Stop()
+    taskTimer := time.NewTimer(alPeriodTime.Add(alDur -
+            (time.Duration(getRandom(60000))+100)*time.Millisecond).Sub(time.Now()))
+    defer taskTimer.Stop()
+    
+    eng.doCloseUnusedFundings()
+    
+    btDone := false
+    var lastOb *OrderBook
+    
     for {
         select {
-            case <-eng.obCh:
-            case <-eng.trCh:
+            case ob := <-eng.obCh: {
+                if len(lastOb.Ask) != 0 && len(ob.Ask) != 0 {
+                    if lastOb.Ask[0].Rate < ob.Ask[0].Rate {
+                        // some eat orderbook, initialize makeBorrowTask
+                        eng.makeBorrowTask(time.Now())
+                    }
+                }
+                lastOb = ob
+            }
+            case t := <-taskTimer.C:
+                if !btDone {
+                    eng.makeBorrowTask(t)
+                    btDone = true
+                }
+            case <-alEndTimer.C:
+                return true
             case <-eng.stopCh:
                 return false
         }
