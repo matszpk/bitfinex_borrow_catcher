@@ -493,15 +493,4 @@ func (eng *Engine) mainRoutine() {
         if !eng.handleAutoLoanPeriod(alPeriodTime) { break }
         alPeriodTime = alPeriodTime.Add(eng.config.AutoLoanFetchPeriod)
     }
-    /*ticker := time.NewTicker(engCheckStatusPeriod)
-    defer ticker.Stop()
-    
-    stopped := false
-    for !stopped {
-        select {
-            case <- ticker.C:
-            case <- eng.stopCh:
-                stopped = true
-        }
-    }*/
 }
