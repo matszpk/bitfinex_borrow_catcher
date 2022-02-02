@@ -23,68 +23,37 @@
 package main
 
 import (
-    "fmt"
-    "time"
-    "github.com/chzyer/readline"
-    //"github.com/matszpk/godec64"
+    "os"
+    "os/signal"
+    "syscall"
 )
 
-func Authenticate() ([]byte, []byte) {
-    apiKey, err := readline.Password("Enter APIKey:")
-    if err!=nil {
-        panic(fmt.Sprint("Can't read APIKey: ", err))
-    }
-    secretKey, err := readline.Password("Enter SecretKey:")
-    if err!=nil {
-        panic(fmt.Sprint("Can't read SecretKey: ", err))
-    }
-    return apiKey, secretKey
-}
-
 func main() {
-    /*apiKey, secretKey := Authenticate()
-    bpriv := NewBitfinexPrivate(apiKey, secretKey)
-    for _, p := range bpriv.GetPositions() {
-        fmt.Println(p)
+    var config Config
+    signal.Ignore(syscall.SIGHUP)
+    config.Load("bbc_config.json")
+    Logger.SetOutput(os.Stderr)
+    Logger.SetLevel("info")
+    
+    if len(os.Args) >= 3 && os.Args[1] == "genpassword" {
+        GenPassword(os.Args[2])
+        return
     }
-    for _, l := range bpriv.GetMarginBalances() {
-        fmt.Println(l)
-    }*/
-    /*bp := NewBitfinexPublic()
-    fmt.Println("BTCUSD", bp.GetMarketPrice("BTCUST").Format(8, false))*/
+    
+    apiKey, secretKey := AuthenticateExchange(&config)
+    
+    bp := NewBitfinexPublic()
     bprt := NewBitfinexRTPublic()
     bprt.Start()
     defer bprt.Stop()
-    bprt.SubscribeOrderBook("UST", func(ob *OrderBook) {
-        fmt.Println("MyOB:", ob.Bid, ob.Ask)
-    })
-    bprt.SubscribeTrades("UST", func(tr *Trade) {
-        fmt.Println("MyTrade:", *tr)
-    })
-    time.Sleep(time.Minute*100)
-    /*bp := NewBitfinexPublic()
-    bprt := NewBitfinexRTPublic()
-    bprt.Start()
-    defer bprt.Stop()
+    bpriv := NewBitfinexPrivate(apiKey, secretKey)
     df := NewDataFetcher(bp, bprt, "UST")
-    df.SetUSDPriceHandler(func(mp godec64.UDec64) {
-        fmt.Println("MyPrice:", mp.Format(8, false))
-    })
-    df.SetOrderBookHandler(func(ob *OrderBook) {
-        fmt.Println("MyOB:", len(ob.Bid), len(ob.Ask))
-    })
-    df.SetLastTradeHandler(func(tr *Trade) {
-        fmt.Println("MyLastTrade:", *tr)
-    })
     df.Start()
     defer df.Stop()
-    for i:=0; i < 1000; i++ {
-        fmt.Println("LTC Status:")
-        fmt.Println("LTC LTC Price:", df.GetUSDPrice().Format(8, false))
-        ob := df.GetOrderBook()
-        fmt.Println("LTC Funding Bid:", ob.Bid)
-        fmt.Println("LTC Funding Ask:", ob.Ask)
-        fmt.Println("LTC Funding Trade:", *df.GetLastTrade())
-        time.Sleep(5*time.Second)
-    }*/
+    
+    eng := NewEngine(&config, df, bpriv)
+    eng.Start()
+    defer eng.Stop()
+    
+    select{}
 }

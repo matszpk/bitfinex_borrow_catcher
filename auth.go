@@ -155,6 +155,10 @@ func decryptExchAuth(passwordHash, ciphData []byte) ([]byte, []byte) {
     return nil, nil
 }
 
+func AuthenticateExchange(config *Config) ([]byte, []byte) {
+    return authenticateExchangeInt(config, readline.Password)
+}
+
 func authenticateExchangeInt(config *Config,
                              rdpwd func(string) ([]byte, error)) ([]byte, []byte) {
     expPasswordHash := GetPasswordFile(config.PasswordFile)
