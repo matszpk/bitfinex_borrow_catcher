@@ -409,6 +409,15 @@ func (eng *Engine) doCloseUnusedFundings() bool {
     return true
 }
 
+func (eng *Engine) doCloseUnusedFundingsSafe() bool {
+    defer func() {
+        if x := recover(); x!=nil {
+            Logger.Error("Panic in doCloseUnusedFundings:", x)
+        }
+    }()
+    return eng.doCloseUnusedFundingsSafe()
+}
+
 func (eng *Engine) makeBorrowTask(t time.Time) {
     eng.taskMutex.Lock()
     defer eng.taskMutex.Unlock()
@@ -422,6 +431,15 @@ func (eng *Engine) makeBorrowTask(t time.Time) {
     eng.doBorrowTask(&bt)
 }
 
+func (eng *Engine) makeBorrowTaskSafe(t time.Time) {
+    defer func() {
+        if x := recover(); x!=nil {
+            Logger.Error("Panic in makeBorrowTask:", x)
+        }
+    }()
+    eng.makeBorrowTask(t)
+}
+
 // return true if auto loan period passed, otherwise if engine stopped.
 func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
     alDur := eng.config.AutoLoanFetchEndShift - eng.config.AutoLoanFetchShift
@@ -432,7 +450,7 @@ func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
             (time.Duration(getRandom(60000))+100)*time.Millisecond).Sub(time.Now()))
     defer taskTimer.Stop()
     
-    eng.doCloseUnusedFundings()
+    eng.doCloseUnusedFundingsSafe()
     
     btDone := false
     var lastOb *OrderBook
@@ -443,14 +461,14 @@ func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
                 if len(lastOb.Ask) != 0 && len(ob.Ask) != 0 {
                     if lastOb.Ask[0].Rate < ob.Ask[0].Rate {
                         // some eat orderbook, initialize makeBorrowTask
-                        go eng.makeBorrowTask(time.Now())
+                        go eng.makeBorrowTaskSafe(time.Now())
                     }
                 }
                 lastOb = ob
             }
             case t := <-taskTimer.C:
                 if !btDone {
-                    go eng.makeBorrowTask(t)
+                    go eng.makeBorrowTaskSafe(t)
                     btDone = true
                 }
             case <-alEndTimer.C:
