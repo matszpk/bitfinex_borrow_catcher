@@ -29,6 +29,7 @@ import (
     "io/ioutil"
     "os"
     "sort"
+    "sync"
     "time"
     "github.com/valyala/fastjson"
     "github.com/matszpk/godec64"
@@ -141,6 +142,7 @@ type Engine struct {
     df *DataFetcher
     bpriv *BitfinexPrivate
     obCh chan *OrderBook
+    taskMutex sync.Mutex
 }
 
 func NewEngine(config *Config, df *DataFetcher, bpriv *BitfinexPrivate) *Engine {
@@ -408,6 +410,8 @@ func (eng *Engine) doCloseUnusedFundings() bool {
 }
 
 func (eng *Engine) makeBorrowTask(t time.Time) {
+    eng.taskMutex.Lock()
+    defer eng.taskMutex.Unlock()
     credits := eng.bpriv.GetCredits(eng.config.Currency)
     bals := eng.bpriv.GetMarginBalances()
     poss := eng.bpriv.GetPositions()
@@ -439,14 +443,14 @@ func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
                 if len(lastOb.Ask) != 0 && len(ob.Ask) != 0 {
                     if lastOb.Ask[0].Rate < ob.Ask[0].Rate {
                         // some eat orderbook, initialize makeBorrowTask
-                        eng.makeBorrowTask(time.Now())
+                        go eng.makeBorrowTask(time.Now())
                     }
                 }
                 lastOb = ob
             }
             case t := <-taskTimer.C:
                 if !btDone {
-                    eng.makeBorrowTask(t)
+                    go eng.makeBorrowTask(t)
                     btDone = true
                 }
             case <-alEndTimer.C:
