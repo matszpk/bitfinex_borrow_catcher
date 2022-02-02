@@ -376,6 +376,7 @@ func (eng *Engine) checkOrderBook(ob *OrderBook) {
 
 func (eng *Engine) doBorrowTask(bt *BorrowTask) bool {
     var opr OpResult
+    Logger.Info("Borrow ", bt.TotalBorrow, " for ", bt.Rate)
     eng.bpriv.SubmitBidOrder(eng.config.Currency, bt.TotalBorrow,
                             bt.Rate.Mul(1100000000000, 12, true), 2, &opr)
     if !opr.Success {
@@ -393,10 +394,12 @@ func (eng *Engine) doBorrowTask(bt *BorrowTask) bool {
         time.Sleep(10*time.Second) // for some time
         // and cancel
         oid := opr.Order.Id
+        Logger.Info("Cancel order ", oid)
         eng.bpriv.CancelOrder(oid, &opr)
     } // if fully filled
     
     // now close fundings
+    Logger.Info("Close used funding ", bt.LoanIdsToClose)
     for _, loanId := range bt.LoanIdsToClose {
         var op2r Op2Result
         eng.bpriv.CloseFunding(loanId, &op2r)
@@ -410,6 +413,7 @@ func (eng *Engine) doBorrowTask(bt *BorrowTask) bool {
 
 func (eng *Engine) doCloseUnusedFundings() bool {
     loans := eng.bpriv.GetLoans(eng.config.Currency)
+    Logger.Info("Close unused funding ", loans)
     for i := 0; i < len(loans); i++ {
         var op2r Op2Result
         eng.bpriv.CloseFunding(loans[i].Id, &op2r)
