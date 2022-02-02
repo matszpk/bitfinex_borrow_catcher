@@ -23,17 +23,17 @@
 package main
 
 import (
-    //"bytes"
+    "bytes"
     "crypto/aes"
     "crypto/cipher"
     "crypto/rand"
     "encoding/hex"
     "io"
     "io/ioutil"
-    //"os"
+    "os"
     "time"
     "golang.org/x/crypto/argon2"
-    //"github.com/chzyer/readline"
+    "github.com/chzyer/readline"
 )
 
 var argon2Salt = []byte("vv9re$Tbvwds@WSg82d1")
@@ -155,7 +155,7 @@ func decryptExchAuth(passwordHash, ciphData []byte) ([]byte, []byte) {
     return nil, nil
 }
 
-/*func authenticateExchangeInt(config *MainConfig,
+func authenticateExchangeInt(config *Config,
                              rdpwd func(string) ([]byte, error)) ([]byte, []byte) {
     expPasswordHash := GetPasswordFile(config.PasswordFile)
     pwd, err := rdpwd("Enter password:")
@@ -170,7 +170,7 @@ func decryptExchAuth(passwordHash, ciphData []byte) ([]byte, []byte) {
     
     pwdKeyHash := passwordKeyHash(pwd)
     
-    if exauthRaw, err := ioutil.ReadFile(config.ExchangeAuthFile); os.IsNotExist(err) {
+    if exauthRaw, err := ioutil.ReadFile(config.AuthFile); os.IsNotExist(err) {
         // if file doesn't exist
         apiKey, err := rdpwd("Enter APIKey:")
         if err!=nil {
@@ -183,7 +183,7 @@ func decryptExchAuth(passwordHash, ciphData []byte) ([]byte, []byte) {
         
         // write to exchange auth file
         data := encryptExchAuth(pwdKeyHash, apiKey, secretKey)
-        if err =  ioutil.WriteFile(config.ExchangeAuthFile, data, 0600); err!=nil {
+        if err =  ioutil.WriteFile(config.AuthFile, data, 0600); err!=nil {
             ErrorPanic("Can't write exchange auth file", err)
         }
         return apiKey, secretKey
@@ -220,4 +220,3 @@ func genPasswordInt(filename string, rdpwd func(string) ([]byte, error)) {
         ErrorPanic("Can't write password to file", err)
     }
 }
-*/

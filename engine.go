@@ -51,6 +51,8 @@ func getRandom(n int64) int64 {
 /* Config stuff */
 
 var (
+    configStrAuthFile = []byte("authFile")
+    configStrPasswordFile = []byte("passwordFile")
     configStrCurrency = []byte("currency")
     configStrAutoLoanFetchPeriod = []byte("autoLoanFetchPeriod")
     configStrAutoLoanFetchShift = []byte("autoLoanFetchShift")
@@ -60,6 +62,8 @@ var (
 )
 
 type Config struct {
+    AuthFile string
+    PasswordFile string
     Currency string
     // when same Bitfinex fetch loans for positions in second
     AutoLoanFetchPeriod time.Duration
@@ -98,6 +102,14 @@ func configFromJson(v *fastjson.Value, config *Config) {
         if ((mask & 32) == 0 && bytes.Equal(key, configStrMinOrderAmount)) {
             config.MinOrderAmount = FastjsonGetUDec64(vx, 12)
             mask |= 32
+        }
+        if ((mask & 64) == 0 && bytes.Equal(key, configStrAuthFile)) {
+            config.AuthFile = FastjsonGetString(vx)
+            mask |= 64
+        }
+        if ((mask & 128) == 0 && bytes.Equal(key, configStrPasswordFile)) {
+            config.PasswordFile = FastjsonGetString(vx)
+            mask |= 128
         }
     })
 }
