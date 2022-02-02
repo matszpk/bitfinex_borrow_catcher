@@ -47,7 +47,7 @@ func main() {
     bprt.Start()
     defer bprt.Stop()
     bpriv := NewBitfinexPrivate(apiKey, secretKey)
-    df := NewDataFetcher(bp, bprt, "UST")
+    df := NewDataFetcher(bp, bprt, config.Currency)
     df.Start()
     defer df.Stop()
     
