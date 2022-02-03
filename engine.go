@@ -539,13 +539,13 @@ func (eng *Engine) mainRoutine() {
     now := time.Now()
     alPeriodTime := now.Truncate(eng.config.AutoLoanFetchPeriod).
                 Add(eng.config.AutoLoanFetchShift)
-    Logger.Debug("periodtime:", alPeriodTime, alPeriodTime.After(now))
-    if alPeriodTime.After(now) { // go to back
-        time.Sleep(alPeriodTime.Sub(now))
-    }
     
     // main loop
     for {
+        Logger.Debug("periodtime:", alPeriodTime, alPeriodTime.After(now))
+        if alPeriodTime.After(now) { // go to back
+            time.Sleep(alPeriodTime.Sub(now))
+        }
         if !eng.handleAutoLoanPeriod(alPeriodTime) { break }
         alPeriodTime = alPeriodTime.Add(eng.config.AutoLoanFetchPeriod)
     }
