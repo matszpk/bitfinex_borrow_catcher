@@ -171,6 +171,7 @@ type Engine struct {
     lastObMutex sync.Mutex
     checkOBEnabled uint32
     btDone uint32
+    alCreditsMap map[uint64]Credit
     taskMutex sync.Mutex
 }
 
@@ -477,12 +478,24 @@ func (eng *Engine) makeBorrowTask(t time.Time) {
     eng.taskMutex.Lock()
     defer eng.taskMutex.Unlock()
     credits := eng.bpriv.GetCredits(eng.config.Currency)
+    
+    // outCredits - all credits with already expired
+    outCredits := make([]Credit, 0, len(credits))
+    for _, v := range eng.alCreditsMap {
+        outCredits = append(outCredits, v)
+    }
+    for _, c := range credits {
+        if _, ok := eng.alCreditsMap[c.Id]; !ok {
+            outCredits = append(outCredits, c)
+        }
+    }
+    
     bals := eng.bpriv.GetMarginBalances()
     poss := eng.bpriv.GetPositions()
     totalBorrow := eng.calculateTotalBorrow(poss, bals)
     var ob OrderBook
     eng.df.GetPublic().GetMaxOrderBook(eng.config.Currency, &ob)
-    bt := eng.prepareBorrowTask(&ob, credits, totalBorrow, t)
+    bt := eng.prepareBorrowTask(&ob, outCredits, totalBorrow, t)
     if bt.TotalBorrow.Mul(eng.df.GetUSDPrice(), 8, true) < eng.config.MinOrderAmount {
         return // do nothing if less than min order amount
     }
@@ -498,7 +511,8 @@ func (eng *Engine) makeBorrowTaskSafe(t time.Time) {
     eng.makeBorrowTask(t)
 }
 
-func (eng *Engine) printCurrentFundingSummary() {
+// return old credits
+func (eng *Engine) printCurrentFundingSummary() []Credit {
     credits := eng.bpriv.GetCredits(eng.config.Currency)
     var amountRateSum, amountSum float64 = 0, 0
     for i := 0; i < len(credits); i++ {
@@ -509,6 +523,7 @@ func (eng *Engine) printCurrentFundingSummary() {
     }
     Logger.Info("Current funding rate: ", amountRateSum / amountSum * 100.0,
                 ", total: ", amountSum)
+    return credits
 }
 
 // return true if auto loan period passed, otherwise if engine stopped.
@@ -523,7 +538,12 @@ func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
     defer taskTimer.Stop()
     
     eng.doCloseUnusedFundingsSafe()
-    eng.printCurrentFundingSummary()
+    // prepare credits map for credits before expiring
+    alCredits := eng.printCurrentFundingSummary()
+    eng.alCreditsMap = make(map[uint64]Credit)
+    for i := 0; i < len(alCredits); i++ {
+        eng.alCreditsMap[alCredits[i].Id] = alCredits[i]
+    }
     
     // clear last orderbook before new auto loan period
     eng.lastObMutex.Lock()
