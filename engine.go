@@ -170,6 +170,7 @@ type Engine struct {
     lastOb *OrderBook
     lastObMutex sync.Mutex
     checkOBEnabled uint32
+    btDone uint32
     taskMutex sync.Mutex
 }
 
@@ -402,7 +403,9 @@ func (eng *Engine) checkOrderBook(ob *OrderBook) {
         obAsk := ob.Ask[0].Rate.ToFloat64(12)
         if lastObAsk < obAsk*(1 - eng.config.MinRateDiffInAskToForceBorrow) {
             // some eat orderbook, initialize makeBorrowTask
-            go eng.makeBorrowTaskSafe(time.Now())
+            if atomic.CompareAndSwapUint32(&eng.btDone, 0, 1) {
+                go eng.makeBorrowTaskSafe(time.Now())
+            }
         }
     }
 }
@@ -522,15 +525,14 @@ func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
     eng.doCloseUnusedFundingsSafe()
     eng.printCurrentFundingSummary()
     
-    btDone := false
+    atomic.StoreUint32(&eng.btDone, 0)
     atomic.StoreUint32(&eng.checkOBEnabled, 1)
     defer atomic.StoreUint32(&eng.checkOBEnabled, 0)
     for {
         select {
             case t := <-taskTimer.C:
-                if !btDone {
+                if atomic.CompareAndSwapUint32(&eng.btDone, 0, 1) {
                     go eng.makeBorrowTaskSafe(t)
-                    btDone = true
                 }
             case <-alEndTimer.C:
                 return true
