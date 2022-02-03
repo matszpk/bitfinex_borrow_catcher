@@ -524,6 +524,7 @@ func (eng *Engine) mainRoutine() {
     now := time.Now()
     alPeriodTime := now.Truncate(eng.config.AutoLoanFetchPeriod).
                 Add(eng.config.AutoLoanFetchShift)
+    Logger.Debug("ALEndTime0:", alPeriodTime, alPeriodTime.After(now))
     if alPeriodTime.After(now) { // go to back
         alPeriodTime = alPeriodTime.Add(-eng.config.AutoLoanFetchPeriod)
     }
