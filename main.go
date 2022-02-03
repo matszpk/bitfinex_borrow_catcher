@@ -45,6 +45,7 @@ func main() {
     bp := NewBitfinexPublic()
     var bprt BitfinexRTPublic = nil
     if config.Realtime {
+        Logger.Info("Initialize realtime")
         bprt = NewBitfinexRTPublic()
         bprt.Start()
         defer bprt.Stop()
