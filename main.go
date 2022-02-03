@@ -29,6 +29,7 @@ import (
 )
 
 func main() {
+    defer utils.RecoverPanicAndExit("main")
     var config Config
     signal.Ignore(syscall.SIGHUP)
     config.Load("bbc_config.json")
