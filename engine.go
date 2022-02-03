@@ -554,5 +554,6 @@ func (eng *Engine) mainRoutine() {
         }
         if !eng.handleAutoLoanPeriod(alPeriodTime) { break }
         alPeriodTime = alPeriodTime.Add(eng.config.AutoLoanFetchPeriod)
+        now = time.Now()
     }
 }
