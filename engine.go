@@ -100,7 +100,7 @@ func configFromJson(v *fastjson.Value, config *Config) {
             mask |= 16
         }
         if ((mask & 32) == 0 && bytes.Equal(key, configStrMinOrderAmount)) {
-            config.MinOrderAmount = FastjsonGetUDec64(vx, 12)
+            config.MinOrderAmount = FastjsonGetUDec64(vx, 8)
             mask |= 32
         }
         if ((mask & 64) == 0 && bytes.Equal(key, configStrAuthFile)) {
