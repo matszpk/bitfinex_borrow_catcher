@@ -43,9 +43,12 @@ func main() {
     apiKey, secretKey := AuthenticateExchange(&config)
     
     bp := NewBitfinexPublic()
-    bprt := NewBitfinexRTPublic()
-    bprt.Start()
-    defer bprt.Stop()
+    var bprt BitfinexRTPublic = nil
+    if config.Realtime {
+        bprt = NewBitfinexRTPublic()
+        bprt.Start()
+        defer bprt.Stop()
+    }
     bpriv := NewBitfinexPrivate(apiKey, secretKey)
     df := NewDataFetcher(bp, bprt, config.Currency)
     df.Start()

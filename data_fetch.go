@@ -94,11 +94,14 @@ func NewDataFetcher(public *BitfinexPublic, rtPublic *BitfinexRTPublic,
         df.usdFiat = true
     }
     
-    if !df.noUsdPrice && !df.usdFiat {
-        rtPublic.SubscribeMarketPrice(usdMarkets[df.currency].Name, df.marketPriceHandler)
+    if rtPublic != nil {
+        if !df.noUsdPrice && !df.usdFiat {
+            rtPublic.SubscribeMarketPrice(usdMarkets[df.currency].Name,
+                                          df.marketPriceHandler)
+        }
+        rtPublic.SubscribeOrderBook(currency, df.orderBookHandler)
+        rtPublic.SubscribeTrades(currency, df.tradeHandler)
     }
-    rtPublic.SubscribeOrderBook(currency, df.orderBookHandler)
-    rtPublic.SubscribeTrades(currency, df.tradeHandler)
     return df
 }
 

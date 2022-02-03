@@ -61,6 +61,7 @@ var (
     configStrMinRateDifference = []byte("minRateDifference")
     configStrMinOrderAmount = []byte("minOrderAmount")
     configStrMinRateDiffInAskToForceBorrow = []byte("minRateDiffInAskToForceBorrow")
+    configStrRealtime = []byte("realtime")
 )
 
 type Config struct {
@@ -75,6 +76,7 @@ type Config struct {
     MinRateDifference float64
     MinOrderAmount godec64.UDec64
     MinRateDiffInAskToForceBorrow float64
+    Realtime bool
 }
 
 func configFromJson(v *fastjson.Value, config *Config) {
@@ -118,6 +120,10 @@ func configFromJson(v *fastjson.Value, config *Config) {
                 bytes.Equal(key, configStrMinRateDiffInAskToForceBorrow)) {
             config.MinRateDiffInAskToForceBorrow = FastjsonGetFloat64(vx)
             mask |= 256
+        }
+        if ((mask & 512) == 0 bytes.Equal(key, configStrRealtime)) {
+            config.Realtime = FastjsonGetBool(vx)
+            mask |= 512
         }
     })
 }
@@ -390,6 +396,7 @@ func (eng *Engine) checkOrderBook(ob *OrderBook) {
     lastOb := eng.lastOb
     eng.lastOb = ob
     eng.lastObMutex.Unlock()
+    Logger.Debug("checkOrderBook")
     if lastOb!=nil && len(lastOb.Ask) != 0 && len(ob.Ask) != 0 {
         lastObAsk := lastOb.Ask[0].Rate.ToFloat64(12)
         obAsk := ob.Ask[0].Rate.ToFloat64(12)
