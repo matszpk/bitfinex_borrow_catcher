@@ -390,7 +390,6 @@ func (eng *Engine) checkOrderBook(ob *OrderBook) {
     lastOb := eng.lastOb
     eng.lastOb = ob
     eng.lastObMutex.Unlock()
-    Logger.Debug("CheckOrderbook:")
     if lastOb!=nil && len(lastOb.Ask) != 0 && len(ob.Ask) != 0 {
         lastObAsk := lastOb.Ask[0].Rate.ToFloat64(12)
         obAsk := ob.Ask[0].Rate.ToFloat64(12)
