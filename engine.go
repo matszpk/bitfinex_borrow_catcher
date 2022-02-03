@@ -525,6 +525,11 @@ func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
     eng.doCloseUnusedFundingsSafe()
     eng.printCurrentFundingSummary()
     
+    // clear last orderbook before new auto loan period
+    lastOb := eng.lastOb
+    eng.lastOb = nil
+    eng.lastObMutex.Unlock()
+    
     atomic.StoreUint32(&eng.btDone, 0)
     atomic.StoreUint32(&eng.checkOBEnabled, 1)
     defer atomic.StoreUint32(&eng.checkOBEnabled, 0)
