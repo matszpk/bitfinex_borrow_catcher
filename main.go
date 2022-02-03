@@ -43,7 +43,7 @@ func main() {
     apiKey, secretKey := AuthenticateExchange(&config)
     
     bp := NewBitfinexPublic()
-    var bprt BitfinexRTPublic = nil
+    var bprt *BitfinexRTPublic = nil
     if config.Realtime {
         Logger.Info("Initialize realtime")
         bprt = NewBitfinexRTPublic()
