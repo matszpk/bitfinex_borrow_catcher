@@ -526,7 +526,7 @@ func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
     eng.printCurrentFundingSummary()
     
     // clear last orderbook before new auto loan period
-    lastOb := eng.lastOb
+    eng.lastObMutex.Lock()
     eng.lastOb = nil
     eng.lastObMutex.Unlock()
     
