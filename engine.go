@@ -377,6 +377,21 @@ func (eng *Engine) checkOrderBook(ob *OrderBook) {
     eng.obCh <- ob
 }
 
+func (eng *Engine) closeFundings(fundings []uint64) bool {
+    for i, loanId := range fundings {
+        var op2r Op2Result
+        eng.bpriv.CloseFunding(loanId, &op2r)
+        if !op2r.Success {
+            Logger.Error("CloseFunding failed:", op2r.Message)
+            return false
+        }
+        if i!=0 && i%80 == 0 {
+            time.Sleep(time.Minute) // gap between requests
+        }
+    }
+    return true
+}
+
 func (eng *Engine) doBorrowTask(bt *BorrowTask) bool {
     var opr OpResult
     Logger.Info("Borrow ", bt.TotalBorrow, " for ", bt.Rate)
@@ -403,29 +418,17 @@ func (eng *Engine) doBorrowTask(bt *BorrowTask) bool {
     
     // now close fundings
     Logger.Info("Close used funding ", bt.LoanIdsToClose)
-    for _, loanId := range bt.LoanIdsToClose {
-        var op2r Op2Result
-        eng.bpriv.CloseFunding(loanId, &op2r)
-        if !op2r.Success {
-            Logger.Error("doBorrowTask CloseFunding failed:", op2r.Message)
-            return false
-        }
-    }
-    return true
+    return eng.closeFundings(bt.LoanIdsToClose)
 }
 
 func (eng *Engine) doCloseUnusedFundings() bool {
     loans := eng.bpriv.GetLoans(eng.config.Currency)
     Logger.Info("Close unused funding ", loans)
-    for i := 0; i < len(loans); i++ {
-        var op2r Op2Result
-        eng.bpriv.CloseFunding(loans[i].Id, &op2r)
-        if !op2r.Success {
-            Logger.Error("doCloseUnusedFundings CloseFunding failed:", op2r.Message)
-            return false
-        }
+    loanIds := make([]uint64, len(loans))
+    for i := 0; i < len(loanIds); i++ {
+        loanIds[i] = loans[i].Id
     }
-    return true
+    return eng.closeFundings(loanIds)
 }
 
 func (eng *Engine) doCloseUnusedFundingsSafe() bool {
