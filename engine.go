@@ -160,7 +160,8 @@ type Engine struct {
     config *Config
     df *DataFetcher
     bpriv *BitfinexPrivate
-    obCh chan *OrderBook
+    lastOb *OrderBook
+    lastObMutex sync.Mutex
     taskMutex sync.Mutex
 }
 
@@ -168,8 +169,7 @@ func NewEngine(config *Config, df *DataFetcher, bpriv *BitfinexPrivate) *Engine 
     return &Engine{ stopCh: make(chan struct{}),
                 baseCurrMarkets: make(map[string]bool),
                 quoteCurrMarkets: make(map[string]bool),
-                config: config, df: df, bpriv: bpriv,
-                obCh: make(chan *OrderBook) }
+                config: config, df: df, bpriv: bpriv }
 }
 
 func (eng *Engine) PrepareMarkets() {
@@ -185,14 +185,12 @@ func (eng *Engine) PrepareMarkets() {
 }
 
 func (eng *Engine) Start() {
-    eng.df.SetOrderBookHandler(eng.checkOrderBook)
     go eng.mainRoutine()
 }
 
 func (eng *Engine) Stop() {
     eng.stopCh <- struct{}{}
     eng.df.SetOrderBookHandler(nil)
-    close(eng.obCh)
 }
 
 type CreditsSort []Credit
@@ -381,7 +379,18 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
 }
 
 func (eng *Engine) checkOrderBook(ob *OrderBook) {
-    eng.obCh <- ob
+    eng.lastObMutex.Lock()
+    lastOb := eng.lastOb
+    eng.lastOb = ob
+    eng.lastObMutex.Unlock()
+    if lastOb!=nil && len(lastOb.Ask) != 0 && len(ob.Ask) != 0 {
+        lastObAsk := lastOb.Ask[0].Rate.ToFloat64(12)
+        obAsk := ob.Ask[0].Rate.ToFloat64(12)
+        if lastObAsk < obAsk*(1 - eng.config.MinRateDiffInAskToForceBorrow) {
+            // some eat orderbook, initialize makeBorrowTask
+            go eng.makeBorrowTaskSafe(time.Now())
+        }
+    }
 }
 
 func (eng *Engine) closeFundings(fundings []uint64) bool {
@@ -500,21 +509,11 @@ func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
     eng.printCurrentFundingSummary()
     
     btDone := false
-    var lastOb *OrderBook
     
+    eng.df.SetOrderBookHandler(eng.checkOrderBook)
+    defer eng.df.SetOrderBookHandler(nil)
     for {
         select {
-            case ob := <-eng.obCh: {
-                if lastOb!=nil && len(lastOb.Ask) != 0 && len(ob.Ask) != 0 {
-                    lastObAsk := lastOb.Ask[0].Rate.ToFloat64(12)
-                    obAsk := ob.Ask[0].Rate.ToFloat64(12)
-                    if lastObAsk < obAsk*(1 - eng.config.MinRateDiffInAskToForceBorrow) {
-                        // some eat orderbook, initialize makeBorrowTask
-                        go eng.makeBorrowTaskSafe(time.Now())
-                    }
-                }
-                lastOb = ob
-            }
             case t := <-taskTimer.C:
                 if !btDone {
                     go eng.makeBorrowTaskSafe(t)
