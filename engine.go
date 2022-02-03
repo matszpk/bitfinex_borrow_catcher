@@ -361,11 +361,14 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
         task.TotalBorrow += toExpireCredits[i].Amount
     }
     
-    // fill rest of not borrowed from total borrow
-    if totalBorrow > totalCredits {
-        rest := totalBorrow - totalCredits
-        amountLeft, _, _:= obFill(rest)
-        task.TotalBorrow += rest - amountLeft
+    // only if other filled.
+    if task.TotalBorrow != 0 {
+        // fill rest of not borrowed from total borrow
+        if totalBorrow > totalCredits {
+            rest := totalBorrow - totalCredits
+            amountLeft, _, _:= obFill(rest)
+            task.TotalBorrow += rest - amountLeft
+        }
     }
     return task
 }
