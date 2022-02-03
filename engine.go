@@ -497,7 +497,7 @@ func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
     for {
         select {
             case ob := <-eng.obCh: {
-                if len(lastOb.Ask) != 0 && len(ob.Ask) != 0 {
+                if lastOb!=nil && len(lastOb.Ask) != 0 && len(ob.Ask) != 0 {
                     if lastOb.Ask[0].Rate < ob.Ask[0].Rate {
                         // some eat orderbook, initialize makeBorrowTask
                         go eng.makeBorrowTaskSafe(time.Now())
