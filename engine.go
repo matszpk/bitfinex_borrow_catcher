@@ -437,7 +437,7 @@ func (eng *Engine) doCloseUnusedFundingsSafe() bool {
             Logger.Error("Panic in doCloseUnusedFundings:", x)
         }
     }()
-    return eng.doCloseUnusedFundingsSafe()
+    return eng.doCloseUnusedFundings()
 }
 
 func (eng *Engine) makeBorrowTask(t time.Time) {
