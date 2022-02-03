@@ -121,7 +121,7 @@ func configFromJson(v *fastjson.Value, config *Config) {
             config.MinRateDiffInAskToForceBorrow = FastjsonGetFloat64(vx)
             mask |= 256
         }
-        if ((mask & 512) == 0 bytes.Equal(key, configStrRealtime)) {
+        if ((mask & 512) == 0 && bytes.Equal(key, configStrRealtime)) {
             config.Realtime = FastjsonGetBool(vx)
             mask |= 512
         }
