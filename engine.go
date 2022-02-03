@@ -504,7 +504,7 @@ func (eng *Engine) printCurrentFundingSummary() {
         amountRateSum += amount*rate;
         amountSum += amount
     }
-    Logger.Info("Current funding rate: ", amountRateSum / amountSum,
+    Logger.Info("Current funding rate: ", amountRateSum / amountSum * 100.0,
                 ", total: ", amountSum)
 }
 
