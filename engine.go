@@ -59,6 +59,7 @@ var (
     configStrAutoLoanFetchEndShift = []byte("autoLoanFetchEndShift")
     configStrMinRateDifference = []byte("minRateDifference")
     configStrMinOrderAmount = []byte("minOrderAmount")
+    configStrMinRateDiffInAskToForceBorrow = []byte("minRateDiffInAskToForceBorrow")
 )
 
 type Config struct {
@@ -72,6 +73,7 @@ type Config struct {
     AutoLoanFetchEndShift time.Duration
     MinRateDifference float64
     MinOrderAmount godec64.UDec64
+    MinRateDiffInAskToForceBorrow float64
 }
 
 func configFromJson(v *fastjson.Value, config *Config) {
@@ -110,6 +112,11 @@ func configFromJson(v *fastjson.Value, config *Config) {
         if ((mask & 128) == 0 && bytes.Equal(key, configStrPasswordFile)) {
             config.PasswordFile = FastjsonGetString(vx)
             mask |= 128
+        }
+        if ((mask & 256) == 0 &&
+                bytes.Equal(key, configStrMinRateDiffInAskToForceBorrow)) {
+            config.MinRateDiffInAskToForceBorrow = FastjsonGetFloat64(vx)
+            mask |= 256
         }
     })
 }
@@ -499,7 +506,9 @@ func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
         select {
             case ob := <-eng.obCh: {
                 if lastOb!=nil && len(lastOb.Ask) != 0 && len(ob.Ask) != 0 {
-                    if lastOb.Ask[0].Rate < ob.Ask[0].Rate {
+                    lastObAsk := lastOb.Ask[0].Rate.ToFloat64(12)
+                    obAsk := ob.Ask[0].Rate.ToFloat64(12)
+                    if lastObAsk < obAsk*(1 - eng.config.MinRateDiffInAskToForceBorrow) {
                         // some eat orderbook, initialize makeBorrowTask
                         go eng.makeBorrowTaskSafe(time.Now())
                     }
