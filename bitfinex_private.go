@@ -402,7 +402,7 @@ func (drv *BitfinexPrivate) SubmitBidOrder(currency string,
     body = append(body, `","amount":"-`...)
     body = append(body, amount.FormatBytes(8, false)...)
     body = append(body, `","rate":"`...)
-    body = append(body, rate.FormatBytes(8, false)...)
+    body = append(body, rate.FormatBytes(12, false)...)
     body = append(body, `","period":`...)
     body = strconv.AppendUint(body, uint64(period), 10)
     body = append(body, `,"flags":0}`...)
