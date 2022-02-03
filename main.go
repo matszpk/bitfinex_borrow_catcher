@@ -33,7 +33,7 @@ func main() {
     signal.Ignore(syscall.SIGHUP)
     config.Load("bbc_config.json")
     Logger.SetOutput(os.Stderr)
-    Logger.SetLevel("info")
+    Logger.SetLevel("debug")
     
     if len(os.Args) >= 3 && os.Args[1] == "genpassword" {
         GenPassword(os.Args[2])

@@ -482,6 +482,7 @@ func (eng *Engine) printCurrentFundingSummary() {
 func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
     alDur := eng.config.AutoLoanFetchEndShift - eng.config.AutoLoanFetchShift
     if alDur < 0 { alDur =- alDur }
+    Logger.Debug("ALEndTime:", alPeriodTime.Add(alDur))
     alEndTimer := time.NewTimer(alPeriodTime.Add(alDur).Sub(time.Now()))
     defer alEndTimer.Stop()
     taskTimer := time.NewTimer(alPeriodTime.Add(alDur -
