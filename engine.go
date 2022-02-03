@@ -30,6 +30,7 @@ import (
     "os"
     "sort"
     "sync"
+    "sync/atomic"
     "time"
     "github.com/valyala/fastjson"
     "github.com/matszpk/godec64"
@@ -162,6 +163,7 @@ type Engine struct {
     bpriv *BitfinexPrivate
     lastOb *OrderBook
     lastObMutex sync.Mutex
+    checkOBEnabled uint32
     taskMutex sync.Mutex
 }
 
@@ -169,6 +171,7 @@ func NewEngine(config *Config, df *DataFetcher, bpriv *BitfinexPrivate) *Engine 
     return &Engine{ stopCh: make(chan struct{}),
                 baseCurrMarkets: make(map[string]bool),
                 quoteCurrMarkets: make(map[string]bool),
+                checkOBEnabled: 0,
                 config: config, df: df, bpriv: bpriv }
 }
 
@@ -185,6 +188,7 @@ func (eng *Engine) PrepareMarkets() {
 }
 
 func (eng *Engine) Start() {
+    eng.df.SetOrderBookHandler(eng.checkOrderBook)
     go eng.mainRoutine()
 }
 
@@ -379,6 +383,9 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
 }
 
 func (eng *Engine) checkOrderBook(ob *OrderBook) {
+    if atomic.LoadUint32(&eng.checkOBEnabled) == 0 {
+        return
+    }
     eng.lastObMutex.Lock()
     lastOb := eng.lastOb
     eng.lastOb = ob
@@ -510,9 +517,8 @@ func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
     eng.printCurrentFundingSummary()
     
     btDone := false
-    
-    eng.df.SetOrderBookHandler(eng.checkOrderBook)
-    defer eng.df.SetOrderBookHandler(nil)
+    atomic.StoreUint32(&eng.checkOBEnabled, 1)
+    defer atomic.StoreUint32(&eng.checkOBEnabled, 0)
     for {
         select {
             case t := <-taskTimer.C:
