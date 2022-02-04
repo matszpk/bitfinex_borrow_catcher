@@ -124,7 +124,7 @@ func TestPrepareBorrowTask(t *testing.T) {
     }
     totalCredits := sumTotalCredits(credits)
     resTask := eng.prepareBorrowTask(&ob, credits, totalCredits, now)
-    expTask := BorrowTask{ 173810000000, []uint64{ 102, 100 }, 4125000000 }
+    expTask := BorrowTask{ 173810000000, []uint64{ 102, 100 }, 4118000000 }
     if !equalBorrowTask(&expTask, &resTask) {
         t.Errorf("BorrowTask mismatch: %v!=%v", expTask, resTask)
     }
@@ -289,7 +289,7 @@ func TestPrepareBorrowTask(t *testing.T) {
     }
     totalCredits = sumTotalCredits(credits)
     resTask = eng.prepareBorrowTask(&ob, credits, totalCredits, now)
-    expTask = BorrowTask{ 82224656000, []uint64{ 101, 100, 103, 102 }, 8221000000 }
+    expTask = BorrowTask{ 82224656000, []uint64{ 101, 100, 103, 102 }, 7220300000 }
     if !equalBorrowTask(&expTask, &resTask) {
         t.Errorf("BorrowTask mismatch: %v!=%v", expTask, resTask)
     }

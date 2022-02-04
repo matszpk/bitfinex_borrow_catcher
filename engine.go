@@ -286,6 +286,7 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
     obi := 0
     var obFilled godec64.UDec64 = 0
     
+    var taskRate godec64.UDec64
     obFill := func(csAmount godec64.UDec64) (godec64.UDec64, float64, bool) {
         var obAmountRate float64 = 0
         for ; obi < oblen && csAmount >= ob.Ask[obi].Amount - obFilled ; obi++ {
@@ -294,7 +295,7 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
             obTotalAmount += obAmount
             csAmount -= ob.Ask[obi].Amount - obFilled
             obFilled = 0
-            task.Rate = ob.Ask[obi].Rate
+            taskRate = ob.Ask[obi].Rate
         }
         if obi == oblen && csAmount != 0 {
             return csAmount, obAmountRate, false
@@ -305,7 +306,7 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
             obTotalAmount += obAmount
             obFilled += csAmount
             csAmount = 0
-            task.Rate = ob.Ask[obi].Rate
+            taskRate = ob.Ask[obi].Rate
         }
         return csAmount, obAmountRate, true
     }
@@ -367,6 +368,7 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
             task.LoanIdsToClose = append(task.LoanIdsToClose, normCredits[csi].Id)
             task.TotalBorrow += csAmount
         } else { break }
+        task.Rate = taskRate
     }
     
     // to expire credits
@@ -376,6 +378,7 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
         // if really expire in this loan fetch period,
         // do not add to list of loans to close.
         task.TotalBorrow += toExpireCredits[i].Amount
+        task.Rate = taskRate
     }
     
     // only if other filled.
@@ -385,6 +388,7 @@ func (eng *Engine) prepareBorrowTask(ob *OrderBook, credits []Credit,
             rest := totalBorrow - totalCredits
             amountLeft, _, _:= obFill(rest)
             task.TotalBorrow += rest - amountLeft
+            task.Rate = taskRate
         }
     }
     return task
