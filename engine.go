@@ -432,7 +432,8 @@ func (eng *Engine) closeFundings(fundings []uint64) bool {
 
 func (eng *Engine) doBorrowTask(bt *BorrowTask) bool {
     var opr OpResult
-    Logger.Info("Borrow ", bt.TotalBorrow, " for ", bt.Rate)
+    Logger.Info("Borrow ", bt.TotalBorrow.Format(8, true), " for ",
+                bt.Rate.Format(12, true))
     eng.bpriv.SubmitBidOrder(eng.config.Currency, bt.TotalBorrow,
                             bt.Rate.Mul(1100000000000, 12, true), 2, &opr)
     if !opr.Success {
