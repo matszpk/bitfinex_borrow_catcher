@@ -531,6 +531,15 @@ func (eng *Engine) printCurrentFundingSummary() []Credit {
     return credits
 }
 
+func (eng *Engine) printCurrentFundingSummarySafe() []Credit {
+    defer func() {
+        if x := recover(); x!=nil {
+            Logger.Error("Panic in printCurrentFundingSummary:", x)
+        }
+    }()
+    return eng.printCurrentFundingSummary()
+}
+
 // return true if auto loan period passed, otherwise if engine stopped.
 func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
     alDur := eng.config.AutoLoanFetchEndShift - eng.config.AutoLoanFetchShift
@@ -544,7 +553,7 @@ func (eng *Engine) handleAutoLoanPeriod(alPeriodTime time.Time) bool {
     
     eng.doCloseUnusedFundingsSafe()
     // prepare credits map for credits before expiring
-    alCredits := eng.printCurrentFundingSummary()
+    alCredits := eng.printCurrentFundingSummarySafe()
     eng.alCreditsMap = make(map[uint64]Credit)
     for i := 0; i < len(alCredits); i++ {
         eng.alCreditsMap[alCredits[i].Id] = alCredits[i]
